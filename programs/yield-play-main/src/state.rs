@@ -3,10 +3,7 @@ use anchor_lang::prelude::*;
 #[account]
 pub struct LotteryState {
     pub admin: Pubkey,
-    pub global_round_counter: u64,   //Round hiện tại
-    pub ticket_base_price: u64,      //giá ticket base
-    pub ticket_price_jump: u64,      //giá ticket tăng sau khi kết thúc
-    pub ticket_time_jump: i64,
+    pub global_round_counter: u64,
     pub is_pause: bool
 }
 
@@ -15,18 +12,17 @@ pub struct RoundState {
     pub admin: Pubkey,
     pub round_id: u64,
 
-    pub price_per_ticket: u64,
-
     pub round_seed: [u8; 32],         // (=keccak(unix_timestamp || global_round_counter)
     pub vrf_seed: [u8; 32],        //(seed lấy từ OraoVRF) 
 
     pub ticket_base_price: u64,
     pub ticket_price_jump: u64,
+    pub price_per_ticket: u64,
     
     pub total_deposit: u64,
     pub total_refunded: u64,
     pub total_farmed_amount: u64,    // tổng số tiền farm được trong round
-    pub total_tickets: u64,
+    pub total_tickets: f64,
 
     pub start_ts: i64,
     pub end_ts: i64, 
@@ -44,7 +40,7 @@ pub struct UserRoundState {
     pub user: Pubkey,
     pub round_id: u64,
     pub deposit_amount: u64,
-    pub ticket_count: u64, 
+    pub ticket_count: f64, 
     pub is_claimed: bool,
 }
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]

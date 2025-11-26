@@ -15,8 +15,8 @@ declare_id!("7Q1x87fvJii5EvgqeJPw8MWJXRVrgsqyvr4QpUqVpBAY");
 pub mod yield_play_main {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, args: InitArgs) -> Result<()> {
-        Initialize::process(ctx, args)
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        Initialize::process(ctx)
     }
 
     pub fn create_round(ctx: Context<CreateRound>, arg: CreateArgs) -> Result<()> {
@@ -31,7 +31,7 @@ pub mod yield_play_main {
         FulfillResult::process(ctx)
     }
 
-    pub fn enter_round(ctx: Context<EnterRound>, amount: u64) -> Result<()> {
+    pub fn enter_round(ctx: Context<EnterRound>, amount: f64) -> Result<()> {
         EnterRound::process(ctx, amount)
     }
     
@@ -43,13 +43,13 @@ pub mod yield_play_main {
         UpdatePrice::process(ctx)
     }
 
-    pub fn deposit_to_lending(ctx: Context<DepositToLending>, amount: u64) -> Result<()> {
-        DepositToLending::process(ctx, amount)
-    }
+    // pub fn deposit_to_lending(ctx: Context<DepositToLending>, amount: u64) -> Result<()> {
+    //     DepositToLending::process(ctx, amount)
+    // }
 
-    pub fn withdraw_from_lending(ctx: Context<WithdrawFromLending>, collateral_amount: u64) -> Result<()> {
-        WithdrawFromLending::process(ctx, collateral_amount)
-    }
+    // pub fn withdraw_from_lending(ctx: Context<WithdrawFromLending>, collateral_amount: u64) -> Result<()> {
+    //     WithdrawFromLending::process(ctx, collateral_amount)
+    // }
 
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         Claim::process(ctx)

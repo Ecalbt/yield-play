@@ -21,5 +21,5 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
 anchor-spl = "0.31.1"
 orao-solana-vrf = { version = "0.6.0", default-features = false, features = ["cpi"] }
-port-variable-rate-lending-instructions = "0.3.0"
+
 

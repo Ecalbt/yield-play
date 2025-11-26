@@ -60,8 +60,8 @@ impl<'info> UpdatePrice<'info> {
         
         
         let rate: f64 = elapsed_time as f64 / total_duration as f64;
-        let mut price = lottery_state.ticket_base_price as f64;
-        price += (rate * lottery_state.ticket_price_jump as f64);
+        let mut price = round_state.ticket_base_price as f64;
+        price += (rate * round_state.ticket_price_jump as f64);
         round_state.price_per_ticket = price as u64;
 
         Ok(())

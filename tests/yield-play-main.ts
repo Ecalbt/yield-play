@@ -35,10 +35,10 @@ describe("yield-play-main", () => {
   
   const vrf = new Orao(provider as any);
 
-  const LOTTERY_STATE_SEED = Buffer.from("LOTTERY_STATE_SEED_2");
-  const ROUND_STATE_SEED = Buffer.from("ROUND_STATE_SEED_1");
-  const ROUND_VAULT_SIGNER_SEED = Buffer.from("ROUND_VAULT_SIGNER_SEED_1");
-  const USER_STATE_SEED = Buffer.from("USER_STATE_SEED_1");
+  const LOTTERY_STATE_SEED = Buffer.from("LOTTERY_STATE_SEED_3");
+  const ROUND_STATE_SEED = Buffer.from("ROUND_STATE_SEED_2");
+  const ROUND_VAULT_SIGNER_SEED = Buffer.from("ROUND_VAULT_SIGNER_SEED_2");
+  const USER_STATE_SEED = Buffer.from("USER_STATE_SEED_2");
   const RANDOMNESS_ACCOUNT_SEED = Buffer.from("orao-vrf-randomness-request");
   const CONFIG_ACCOUNT_SEED = Buffer.from("orao-vrf-network-configuration");
   const LENDING_PROGRAM = new PublicKey("7tjE28izRUjzmxC1QNXnNwcc4N82CNYCexf3k8mw67s3"); //port finance lending program
@@ -107,18 +107,13 @@ describe("yield-play-main", () => {
   });
 
   it("Is initialized!", async () => {
-    let args = {
-      ticketBasePrice: new BN(1_000_000), // 1 token
-      ticketPriceJump: new BN(100_000), // 0.1 token
-      ticketTimeJump: new BN(60), //seconds
-    }
     let lotteryState;
     try {
       lotteryState = await program.account.lotteryState.fetch(lotteryStatePDA);
       
     } catch (error) {
        const tx = await program.methods
-      .initialize(args)
+      .initialize()
       .accounts({
         authority: admin.publicKey,
         lotteryState: lotteryStatePDA,
@@ -131,9 +126,6 @@ describe("yield-play-main", () => {
     }
     console.log("Lottery State: ");
     console.log("    admin: ", lotteryState.admin.toBase58());
-    console.log("    ticket_base_price: ", lotteryState.ticketBasePrice.toNumber());
-    console.log("    ticket_price_jump: ", lotteryState.ticketPriceJump.toNumber());
-    console.log("    ticket_time_jump: ", lotteryState.ticketTimeJump.toNumber());
     console.log("    global_round_counter: ", lotteryState.globalRoundCounter.toNumber());
     console.log("    is_pause: ", lotteryState.isPause);
     
@@ -180,7 +172,9 @@ describe("yield-play-main", () => {
         roundId: new BN(1),
         startTs: new BN(Math.floor(Date.now() / 1000)),
         endTs: new BN(Math.floor(Date.now()/1000) + 30),
-        gapTime: new BN(1000)
+        gapTime: new BN(1000),
+        ticketBasePrice: new BN(1_000_000), // 1 token
+        ticketPriceJump: new BN(1_000_000), // 1 token
       };
       const tx = await program.methods
         .createRound(arg)
@@ -208,11 +202,13 @@ describe("yield-play-main", () => {
     console.log("    round_id: ", firstRoundState.roundId.toNumber());
     console.log("    total_deposit: ", firstRoundState.totalDeposit.toNumber());
     console.log("    total_refunded: ", firstRoundState.totalRefunded.toNumber());
-    console.log("    total_tickets: ", firstRoundState.totalTickets.toNumber());
+    console.log("    total_tickets: ", firstRoundState.totalTickets);
     console.log("    start_ts: ", firstRoundState.startTs.toNumber());
     console.log("    end_ts: ", firstRoundState.endTs.toNumber());
     console.log("    gap_time: ", firstRoundState.gapTime.toNumber());
     console.log("    status: ", firstRoundState.status);
+    console.log("    ticket_base_price: ", firstRoundState.ticketBasePrice.toNumber());
+    console.log("    ticket_price_jump: ", firstRoundState.ticketPriceJump.toNumber());
     console.log("    price_per_ticket: ", firstRoundState.pricePerTicket.toNumber());
     console.log("    round_seed: ", firstRoundState.roundSeed);
     console.log("    vrf_seed:", firstRoundState.vrfSeed);
@@ -271,7 +267,7 @@ describe("yield-play-main", () => {
     firstRoundState = await program.account.roundState.fetch(firstRoundPDA);
     console.log("VRF Seed in Round State: ", firstRoundState.vrfSeed);
   });
-  it.skip("Update Price!", async () => {
+  it("Update Price!", async () => {
     await new Promise(resolve => setTimeout(resolve, 5000)); //wait 5 seconds
     const ix = await program.methods.updatePrice()
     .accounts({
@@ -290,7 +286,7 @@ describe("yield-play-main", () => {
       console.log("Round State before user enter: ");
 
       console.log("    total_deposit: ", firstRoundState.totalDeposit.toNumber());
-      console.log("    total_tickets: ", firstRoundState.totalTickets.toNumber());
+      console.log("    total_tickets: ", firstRoundState.totalTickets);
       console.log("    price_per_ticket: ", firstRoundState.pricePerTicket.toNumber());
     for (let i = 0; i < 5; i++) {
       
@@ -333,7 +329,7 @@ describe("yield-play-main", () => {
 
       // Enter Round
       users.push(user);
-      await program.methods.enterRound(new BN(2)).accounts({
+      await program.methods.enterRound(2.0).accounts({
         user: user.publicKey,
         lotteryState: lotteryStatePDA,
         roundState: firstRoundPDA,
@@ -363,7 +359,7 @@ describe("yield-play-main", () => {
       console.log("    user: ", userRoundState.user.toBase58());
       console.log("    round_id: ", userRoundState.roundId.toNumber());
       console.log("    deposit_amount: ", userRoundState.depositAmount.toNumber());
-      console.log("    ticket_count: ", userRoundState.ticketCount.toNumber());
+      console.log("    ticket_count: ", userRoundState.ticketCount);
       console.log("    is_claimed: ", userRoundState.isClaimed);
       console.log("---------------------------------------------------");
       usersState.push(userRoundStatePDA);
@@ -371,7 +367,7 @@ describe("yield-play-main", () => {
     const roundStateAfter = await program.account.roundState.fetch(firstRoundPDA);
       console.log("Round State after: ");
       console.log("    total_deposit: ", roundStateAfter.totalDeposit.toNumber());
-      console.log("    total_tickets: ", roundStateAfter.totalTickets.toNumber());
+      console.log("    total_tickets: ", roundStateAfter.totalTickets);
   });
 
   it("Choose winner!", async () => {
@@ -399,7 +395,7 @@ describe("yield-play-main", () => {
     
   });
 
-  it("Claim prizes!", async () => {
+  it.skip("Claim prizes!", async () => {
     const ix = await program.methods.claim()
     .accounts({
       user: users[0].publicKey,

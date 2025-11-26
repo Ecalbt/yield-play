@@ -69,7 +69,7 @@ pub struct EnterRound<'info> {
     pub system_program: Program<'info, System>,
 }
 impl<'info> EnterRound<'info> {
-    pub fn process(ctx: Context<EnterRound>, amount: u64) -> Result<()> {
+    pub fn process(ctx: Context<EnterRound>, amount: f64) -> Result<()> {
         let round_state = &mut ctx.accounts.round_state;
         let user_round_state = &mut ctx.accounts.user_round_state;
         let lottery_state = &ctx.accounts.lottery_state;
@@ -82,7 +82,7 @@ impl<'info> EnterRound<'info> {
             user_round_state.user = ctx.accounts.user.key();
             user_round_state.round_id = round_state.round_id;
             user_round_state.deposit_amount = 0;
-            user_round_state.ticket_count = 0;
+            user_round_state.ticket_count = 0 as f64;
             user_round_state.is_claimed = false;
         }
 
@@ -95,7 +95,7 @@ impl<'info> EnterRound<'info> {
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        let token_amount = round_state.price_per_ticket.checked_mul(amount).unwrap();
+        let token_amount = (round_state.price_per_ticket as f64 * amount) as u64;
         transfer_checked(cpi_ctx, token_amount, ctx.accounts.payment_mint.decimals)?;
 
         //update round state

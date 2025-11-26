@@ -5,14 +5,7 @@ use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 use crate::state::LotteryState;
 use crate::constant::*;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct InitArgs {
-    pub ticket_base_price: u64,
-    pub ticket_price_jump: u64,
-    pub ticket_time_jump: i64,
-}
 #[derive(Accounts)]
-#[instruction(args: InitArgs)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -31,13 +24,10 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 impl<'info> Initialize<'info> {
-    pub fn process(ctx: Context<Initialize>, args: InitArgs) -> Result<()> {
+    pub fn process(ctx: Context<Initialize>) -> Result<()> {
         let lottery_state = &mut ctx.accounts.lottery_state;
         lottery_state.admin = ctx.accounts.authority.key();
         lottery_state.global_round_counter = 0;
-        lottery_state.ticket_base_price = args.ticket_base_price;
-        lottery_state.ticket_price_jump = args.ticket_price_jump;
-        lottery_state.ticket_time_jump = args.ticket_time_jump;
         lottery_state.is_pause = false;
         Ok(())
     }

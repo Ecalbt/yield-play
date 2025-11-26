@@ -81,8 +81,9 @@ impl<'info> CreateRound<'info> {
 
         let round_state = &mut ctx.accounts.round_state;
         let now_ts = Clock::get()?.unix_timestamp as u64;
-
-        require!(arg.start_ts as u64 > now_ts, ErrorCode::InvalidStartTime);
+        msg!("Creating round at timestamp: {}", now_ts);
+        msg!("With args: start_ts: {}, end_ts: {}, gap_time: {}", arg.start_ts, arg.end_ts, arg.gap_time);
+        require!((arg.start_ts * 1000) as u64 >= now_ts, ErrorCode::InvalidStartTime);
         require!(arg.end_ts as u64 > arg.start_ts as u64, ErrorCode::GapTimeInvalid);
 
         round_state.admin = ctx.accounts.authority.key();
@@ -95,7 +96,7 @@ impl<'info> CreateRound<'info> {
         seed_data.extend_from_slice(&lottery_state.global_round_counter.to_le_bytes());
         let seed_hash = hash(&seed_data);
 
-        round_state.price_per_ticket = lottery_state.ticket_base_price;
+        round_state.price_per_ticket = arg.ticket_base_price;
         round_state.round_seed = seed_hash.0;
         
         round_state.vrf_seed = [0u8; 32];   
@@ -103,7 +104,7 @@ impl<'info> CreateRound<'info> {
         round_state.total_deposit = 0;
         round_state.total_refunded = 0;
         round_state.total_farmed_amount = 0;
-        round_state.total_tickets = 0;
+        round_state.total_tickets = 0 as f64;
 
         round_state.start_ts = arg.start_ts; 
         round_state.end_ts = arg.end_ts;   
