@@ -1,0 +1,25 @@
+[package]
+name = "yield-play-main"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "yield_play_main"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+
+[dependencies]
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+anchor-spl = "0.31.1"
+orao-solana-vrf = { version = "0.6.0", default-features = false, features = ["cpi"] }
+port-variable-rate-lending-instructions = "0.3.0"
+
