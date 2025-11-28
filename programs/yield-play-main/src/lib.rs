@@ -43,13 +43,13 @@ pub mod yield_play_main {
         UpdatePrice::process(ctx)
     }
 
-    // pub fn deposit_to_lending(ctx: Context<DepositToLending>, amount: u64) -> Result<()> {
-    //     DepositToLending::process(ctx, amount)
-    // }
+    pub fn deposit_to_lending(ctx: Context<DepositToLending>) -> Result<()> {
+        DepositToLending::process(ctx)
+    }
 
-    // pub fn withdraw_from_lending(ctx: Context<WithdrawFromLending>, collateral_amount: u64) -> Result<()> {
-    //     WithdrawFromLending::process(ctx, collateral_amount)
-    // }
+    pub fn withdraw_from_lending(ctx: Context<WithdrawFromLending>) -> Result<()> {
+        WithdrawFromLending::process(ctx)
+    }
 
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         Claim::process(ctx)

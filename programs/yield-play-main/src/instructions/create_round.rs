@@ -83,7 +83,7 @@ impl<'info> CreateRound<'info> {
         let now_ts = Clock::get()?.unix_timestamp as u64;
         msg!("Creating round at timestamp: {}", now_ts);
         msg!("With args: start_ts: {}, end_ts: {}, gap_time: {}", arg.start_ts, arg.end_ts, arg.gap_time);
-        require!((arg.start_ts * 1000) as u64 >= now_ts, ErrorCode::InvalidStartTime);
+        require!((arg.start_ts) as u64 >= now_ts, ErrorCode::InvalidStartTime);
         require!(arg.end_ts as u64 > arg.start_ts as u64, ErrorCode::GapTimeInvalid);
 
         round_state.admin = ctx.accounts.authority.key();

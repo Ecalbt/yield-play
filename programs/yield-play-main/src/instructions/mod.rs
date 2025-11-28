@@ -4,7 +4,7 @@ pub mod request_result;
 pub mod enter_round;
 pub mod choose_winner;
 pub mod update_price;
-// pub mod deposit_to_lending;
+pub mod deposit_to_lending;
 pub mod claim;
 
 pub use initialize::*;
@@ -13,5 +13,5 @@ pub use request_result::*;
 pub use enter_round::*;
 pub use choose_winner::*;
 pub use update_price::*;
-// pub use deposit_to_lending::*;
+pub use deposit_to_lending::*;
 pub use claim::*;

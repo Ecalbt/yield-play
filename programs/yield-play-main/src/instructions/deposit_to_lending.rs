@@ -1,289 +1,367 @@
-use anchor_lang::{
-    prelude::*,
-    solana_program::program::{invoke_signed,invoke},
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{
+	instruction::{AccountMeta, Instruction},
+	program::invoke_signed,
 };
 use anchor_spl::{
-    associated_token::AssociatedToken,
-    token_interface::{TokenInterface, TokenAccount, Mint},
-};
-use port_variable_rate_lending_instructions::instruction::{
-    deposit_reserve_liquidity, 
-    redeem_reserve_collateral, 
-    refresh_reserve,
+	associated_token::AssociatedToken,
+	token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
 use crate::{
-    constant::*,
-    state::*,
-    errors::ErrorCode,
+	constant::*,
+	errors::ErrorCode,
+	state::*,
 };
+
+/// sha256("global:deposit")[0..8]
+fn deposit_discriminator() -> [u8; 8] {
+	[242, 35, 198, 137, 82, 225, 242, 182]
+}
+
+/// sha256("global:withdraw")[0..8] (from Jupiter Lend IDL)
+fn withdraw_discriminator() -> [u8; 8] {
+	[183, 18, 70, 156, 148, 109, 161, 34]
+}
 
 #[derive(Accounts)]
 pub struct DepositToLending<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
+	#[account(mut)]
+	pub authority: Signer<'info>,
 
-    #[account(
-        mut,
-        seeds = [ROUND_STATE_SEED, &round_state.round_id.to_le_bytes()],
-        bump,
-    )]
-    pub round_state: Account<'info, RoundState>,
+	#[account(
+		mut,
+		seeds = [ROUND_STATE_SEED, &round_state.round_id.to_le_bytes()],
+		bump,
+	)]
+	pub round_state: Account<'info, RoundState>,
 
-    /// CHECK: Vault round signer PDA
-    #[account(
-        seeds = [ROUND_VAULT_SIGNER_SEED, &round_state.round_id.to_le_bytes()],
-        bump,
-    )]
-    pub vault_round_signer: AccountInfo<'info>,
+	/// CHECK: PDA that owns the round vault
+	#[account(
+		seeds = [ROUND_VAULT_SIGNER_SEED, &round_state.round_id.to_le_bytes()],
+		bump,
+	)]
+	pub vault_round_signer: AccountInfo<'info>,
 
-    // Source liquidity (payment tokens in round vault)
-    pub payment_mint: InterfaceAccount<'info, Mint>,
-    #[account(
-        mut,
-        associated_token::mint = payment_mint,
-        associated_token::authority = vault_round_signer,
-    )]
-    pub round_vault_ata: InterfaceAccount<'info, TokenAccount>,
+	pub payment_mint: InterfaceAccount<'info, Mint>,
 
-    // Destination collateral (tokens received from lending protocol)
-    pub collateral_mint: InterfaceAccount<'info, Mint>,
-    #[account(
-        mut,
-        associated_token::mint = collateral_mint,
-        associated_token::authority = vault_round_signer,
-    )]
-    pub collateral_vault_ata: InterfaceAccount<'info, TokenAccount>,
+	#[account(
+		mut,
+		associated_token::mint = payment_mint,
+		associated_token::authority = vault_round_signer,
+	)]
+	pub round_vault_ata: InterfaceAccount<'info, TokenAccount>,
 
-    /// CHECK: Lending program ID (Port Finance)
-    pub lending_program: AccountInfo<'info>,
+	/// CHECK: ATA (or wallet) that receives the f-token collateral
+	#[account(mut)]
+	pub recipient_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    /// CHECK: Reserve account
-    #[account(mut)]
-    pub reserve: AccountInfo<'info>,
+	/// CHECK: Jupiter Lend configuration/admin account
+	pub lending_admin: AccountInfo<'info>,
 
-    /// CHECK: Reserve liquidity supply
-    #[account(mut)]
-    pub reserve_liquidity_supply: AccountInfo<'info>,
+	/// CHECK: Jupiter Lend state account
+	#[account(mut)]
+	pub lending: AccountInfo<'info>,
 
-    /// CHECK: Reserve collateral mint
-    #[account(mut)]
-    pub reserve_collateral_mint: AccountInfo<'info>,
+	/// CHECK: Mint for the deposit receipt token
+	#[account(mut)]
+	pub f_token_mint: AccountInfo<'info>,
 
-    /// CHECK: Reserve liquidity oracle (Pyth or Switchboard)
-    #[account(mut)]
-    pub reserve_liquidity_oracle: AccountInfo<'info>,
+	/// CHECK: Liquidity reserve account that holds deposited tokens
+	#[account(mut)]
+	pub supply_token_reserves_liquidity: AccountInfo<'info>,
 
-    /// CHECK: Lending market
-    pub lending_market: AccountInfo<'info>,
+	/// CHECK: Position account tracking this pool's liquidity
+	#[account(mut)]
+	pub lending_supply_position_on_liquidity: AccountInfo<'info>,
 
-    /// CHECK: Lending market authority
-    pub lending_market_authority: AccountInfo<'info>,
+	/// CHECK: Rate model describing how interest accrues
+	pub rate_model: AccountInfo<'info>,
 
-    pub token_program: Interface<'info, TokenInterface>,
-    pub system_program: Program<'info, System>,
+	/// CHECK: Vault account used internally by Jupiter Lend
+	#[account(mut)]
+	pub vault: AccountInfo<'info>,
+
+	/// CHECK: Liquidity account used in the CPI
+	#[account(mut)]
+	pub liquidity: AccountInfo<'info>,
+
+	/// CHECK: Liquidity program invoked by Jupiter Lend
+	pub liquidity_program: AccountInfo<'info>,
+
+	/// CHECK: Rewards model account
+	pub rewards_rate_model: AccountInfo<'info>,
+
+	pub token_program: Interface<'info, TokenInterface>,
+	pub associated_token_program: Program<'info, AssociatedToken>,
+	pub system_program: Program<'info, System>,
+
+	/// CHECK: Jupiter Lend program ID
+	pub lending_program: AccountInfo<'info>,
 }
 
+
 impl<'info> DepositToLending<'info> {
-    pub fn process(
-        ctx: Context<'_, '_, '_, 'info, DepositToLending<'info>>,
-        amount: u64,
-    ) -> Result<()> {
-        let round_state = &ctx.accounts.round_state;
+	pub fn process(ctx: Context<DepositToLending>) -> Result<()> {
+		let round_state = &ctx.accounts.round_state;
+
+		require!(round_state.admin == ctx.accounts.authority.key(), ErrorCode::Unauthorized);
+		let amount = ctx.accounts.round_vault_ata.amount;
+		require!(amount > 0, ErrorCode::InvalidAmount);
+
+		let round_id_bytes = round_state.round_id.to_le_bytes();
+		let (_, vault_signer_bump) = Pubkey::find_program_address(
+			&[ROUND_VAULT_SIGNER_SEED, &round_id_bytes],
+			ctx.program_id,
+		);
+
+		let signer_seeds: &[&[&[u8]]] = &[&[
+			ROUND_VAULT_SIGNER_SEED,
+			&round_id_bytes,
+			&[vault_signer_bump],
+		]];
+
+		let mut data = deposit_discriminator().to_vec();
+		data.extend_from_slice(&amount.to_le_bytes());
+
+		let accounts = vec![
+			AccountMeta::new(*ctx.accounts.vault_round_signer.key, true),
+			AccountMeta::new(ctx.accounts.round_vault_ata.key(), false),
+			AccountMeta::new(ctx.accounts.recipient_token_account.key(), false),
+			AccountMeta::new(ctx.accounts.payment_mint.key(), false),
+			AccountMeta::new_readonly(*ctx.accounts.lending_admin.key, false),
+			AccountMeta::new(*ctx.accounts.lending.key, false),
+			AccountMeta::new(*ctx.accounts.f_token_mint.key, false),
+			AccountMeta::new(*ctx.accounts.supply_token_reserves_liquidity.key, false),
+			AccountMeta::new(*ctx.accounts.lending_supply_position_on_liquidity.key, false),
+			AccountMeta::new_readonly(*ctx.accounts.rate_model.key, false),
+			AccountMeta::new(*ctx.accounts.vault.key, false),
+			AccountMeta::new(*ctx.accounts.liquidity.key, false),
+			AccountMeta::new_readonly(*ctx.accounts.liquidity_program.key, false),
+			AccountMeta::new_readonly(*ctx.accounts.rewards_rate_model.key, false),
+			AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+			AccountMeta::new_readonly(ctx.accounts.associated_token_program.key(), false),
+			AccountMeta::new_readonly(ctx.accounts.system_program.key(), false),
+		];
+
+		let instruction = Instruction {
+			program_id: *ctx.accounts.lending_program.key,
+			accounts,
+			data,
+		};
+
+		invoke_signed(
+			&instruction,
+			&[
+				ctx.accounts.vault_round_signer.clone(),
+				ctx.accounts.round_vault_ata.to_account_info(),
+				ctx.accounts.recipient_token_account.to_account_info(),
+				ctx.accounts.payment_mint.to_account_info(),
+				ctx.accounts.lending_admin.clone(),
+				ctx.accounts.lending.clone(),
+				ctx.accounts.f_token_mint.clone(),
+				ctx.accounts.supply_token_reserves_liquidity.clone(),
+				ctx.accounts.lending_supply_position_on_liquidity.clone(),
+				ctx.accounts.rate_model.clone(),
+				ctx.accounts.vault.clone(),
+				ctx.accounts.liquidity.clone(),
+				ctx.accounts.liquidity_program.clone(),
+				ctx.accounts.rewards_rate_model.clone(),
+				ctx.accounts.token_program.to_account_info(),
+				ctx.accounts.associated_token_program.to_account_info(),
+				ctx.accounts.system_program.to_account_info(),
+			],
+			signer_seeds,
+		)
+		.map_err(|e| {
+			msg!("Jupiter Lend deposit CPI failed: {:?}", e);
+			error!(ErrorCode::CpiLendingProgramFailed)
+		})?;
+
+		msg!(
+			"Deposited entire round vault ({} tokens) from round {} into Jupiter Lend",
+			amount,
+			round_state.round_id
+		);
         
-        require!(
-            round_state.admin == ctx.accounts.authority.key(),
-            ErrorCode::Unauthorized
-        );
-
-        let (_, vault_signer_bump) = Pubkey::find_program_address(
-            &[ROUND_VAULT_SIGNER_SEED, &round_state.round_id.to_le_bytes()],
-            ctx.program_id,
-        );
-
-        let refresh_ix = refresh_reserve(
-            *ctx.accounts.lending_program.key,
-            *ctx.accounts.reserve.key,
-            Some(*ctx.accounts.reserve_liquidity_oracle.key),
-        );
-
-        let refresh_accounts = vec![
-            ctx.accounts.reserve.to_account_info(),
-            ctx.accounts.reserve_liquidity_oracle.to_account_info(),
-        ];
-
-        invoke(&refresh_ix, &refresh_accounts)?;
-
-        let deposit_ix = deposit_reserve_liquidity(
-            *ctx.accounts.lending_program.key,
-            amount,
-            *ctx.accounts.round_vault_ata.to_account_info().key,
-            *ctx.accounts.collateral_vault_ata.to_account_info().key,
-            *ctx.accounts.reserve.key,
-            *ctx.accounts.reserve_liquidity_supply.key,
-            *ctx.accounts.reserve_collateral_mint.key,
-            *ctx.accounts.lending_market.key,
-            *ctx.accounts.lending_market_authority.key,
-            *ctx.accounts.vault_round_signer.key,
-        );
-
-        let deposit_accounts = vec![
-            ctx.accounts.round_vault_ata.to_account_info(),
-            ctx.accounts.collateral_vault_ata.to_account_info(),
-            ctx.accounts.reserve.to_account_info(),
-            ctx.accounts.reserve_liquidity_supply.to_account_info(),
-            ctx.accounts.reserve_collateral_mint.to_account_info(),
-            ctx.accounts.lending_market.to_account_info(),
-            ctx.accounts.lending_market_authority.to_account_info(),
-            ctx.accounts.vault_round_signer.to_account_info(),
-            ctx.accounts.token_program.to_account_info(),
-        ];
-
-        let signer_seeds: &[&[&[u8]]] = &[&[
-            ROUND_VAULT_SIGNER_SEED,
-            &round_state.round_id.to_le_bytes(),
-            &[vault_signer_bump],
-        ]];
-
-        invoke_signed(&deposit_ix, &deposit_accounts, signer_seeds)?;
-
-        msg!("Deposited {} tokens to Port Finance", amount);
-
-        Ok(())
-    }
+		Ok(())
+	}
 }
 
 #[derive(Accounts)]
 pub struct WithdrawFromLending<'info> {
+	#[account(mut)]
+	pub authority: Signer<'info>,
+
+	#[account(
+		mut,
+		seeds = [ROUND_STATE_SEED, &round_state.round_id.to_le_bytes()],
+		bump,
+	)]
+	pub round_state: Account<'info, RoundState>,
+
+	/// CHECK: PDA signer for all vault interactions
+	#[account(
+		seeds = [ROUND_VAULT_SIGNER_SEED, &round_state.round_id.to_le_bytes()],
+		bump,
+	)]
+	pub vault_round_signer: AccountInfo<'info>,
+
+	pub payment_mint: InterfaceAccount<'info, Mint>,
+
+	#[account(
+		mut,
+		associated_token::mint = payment_mint,
+		associated_token::authority = vault_round_signer,
+	)]
+	pub round_vault_ata: InterfaceAccount<'info, TokenAccount>,
+
+	#[account(
+		mut,
+		associated_token::mint = f_token_mint,
+		associated_token::authority = vault_round_signer,
+	)]
+	pub collateral_token_account: InterfaceAccount<'info, TokenAccount>,
+
+	/// CHECK: Jupiter Lend configuration/admin account
+	pub lending_admin: AccountInfo<'info>,
+
+	/// CHECK: Jupiter Lend state account
+	#[account(mut)]
+	pub lending: AccountInfo<'info>,
+
+	/// CHECK: Mint for the deposit receipt token
+	#[account(mut)]
+	pub f_token_mint: AccountInfo<'info>,
+
+	/// CHECK: Liquidity reserve account that holds deposited tokens
+	#[account(mut)]
+	pub supply_token_reserves_liquidity: AccountInfo<'info>,
+
+	/// CHECK: Position account tracking this pool's liquidity
+	#[account(mut)]
+	pub lending_supply_position_on_liquidity: AccountInfo<'info>,
+
+	/// CHECK: Rate model describing how interest accrues
+	pub rate_model: AccountInfo<'info>,
+
+	/// CHECK: Vault account used internally by Jupiter Lend
+	#[account(mut)]
+	pub vault: AccountInfo<'info>,
+
+    /// CHECK: Claim account PDA theo tài liệu CPI của Jupiter Lend
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub claim_account: AccountInfo<'info>,
 
-    #[account(
-        mut,
-        seeds = [ROUND_STATE_SEED, &round_state.round_id.to_le_bytes()],
-        bump,
-    )]
-    pub round_state: Account<'info, RoundState>,
+	/// CHECK: Liquidity account used in the CPI
+	#[account(mut)]
+	pub liquidity: AccountInfo<'info>,
 
-    /// CHECK: Vault round signer PDA
-    #[account(
-        seeds = [ROUND_VAULT_SIGNER_SEED, &round_state.round_id.to_le_bytes()],
-        bump,
-    )]
-    pub vault_round_signer: AccountInfo<'info>,
+	/// CHECK: Liquidity program invoked by Jupiter Lend
+	pub liquidity_program: AccountInfo<'info>,
 
-    pub collateral_mint: InterfaceAccount<'info, Mint>,
-    #[account(
-        mut,
-        associated_token::mint = collateral_mint,
-        associated_token::authority = vault_round_signer,
-    )]
-    pub collateral_vault_ata: InterfaceAccount<'info, TokenAccount>,
+	/// CHECK: Rewards model account
+	pub rewards_rate_model: AccountInfo<'info>,
 
-    pub payment_mint: InterfaceAccount<'info, Mint>,
-    #[account(
-        mut,
-        associated_token::mint = payment_mint,
-        associated_token::authority = vault_round_signer,
-    )]
-    pub round_vault_ata: InterfaceAccount<'info, TokenAccount>,
+	pub token_program: Interface<'info, TokenInterface>,
+	pub associated_token_program: Program<'info, AssociatedToken>,
+	pub system_program: Program<'info, System>,
 
-    /// CHECK: Lending program ID (Port Finance)
-    pub lending_program: AccountInfo<'info>,
-
-    /// CHECK: Reserve account
-    #[account(mut)]
-    pub reserve: AccountInfo<'info>,
-
-    /// CHECK: Reserve collateral mint
-    #[account(mut)]
-    pub reserve_collateral_mint: AccountInfo<'info>,
-
-    /// CHECK: Reserve liquidity supply
-    #[account(mut)]
-    pub reserve_liquidity_supply: AccountInfo<'info>,
-
-    /// CHECK: Lending market
-    pub lending_market: AccountInfo<'info>,
-
-    /// CHECK: Lending market authority
-    pub lending_market_authority: AccountInfo<'info>,
-
-    /// CHECK: Reserve liquidity oracle
-    #[account(mut)]
-    pub reserve_liquidity_oracle: AccountInfo<'info>,
-
-    pub token_program: Interface<'info, TokenInterface>,
-    pub system_program: Program<'info, System>,
+	/// CHECK: Jupiter Lend program ID
+	pub lending_program: AccountInfo<'info>,
 }
 
 impl<'info> WithdrawFromLending<'info> {
-    pub fn process(
-        ctx: Context<'_, '_, '_, 'info, WithdrawFromLending<'info>>,
-        collateral_amount: u64,
-    ) -> Result<()> {
-        let round_state = &ctx.accounts.round_state;
-        
-        require!(
-            round_state.admin == ctx.accounts.authority.key(),
-            ErrorCode::Unauthorized
-        );
-        let (_, vault_signer_bump) = Pubkey::find_program_address(
-            &[ROUND_VAULT_SIGNER_SEED, &round_state.round_id.to_le_bytes()],
-            ctx.program_id,
-        );
+	pub fn process(ctx: Context<WithdrawFromLending>) -> Result<()> {
+		let round_state = &mut ctx.accounts.round_state;
 
-        let refresh_ix = refresh_reserve(
-            *ctx.accounts.lending_program.key,
-            *ctx.accounts.reserve.key,
-            Some(*ctx.accounts.reserve_liquidity_oracle.key),
-        );
+		require!(round_state.admin == ctx.accounts.authority.key(), ErrorCode::Unauthorized);
 
-        let refresh_accounts = vec![
-            ctx.accounts.reserve.to_account_info(),
-            ctx.accounts.reserve_liquidity_oracle.to_account_info(),
-        ];
+		let collateral_amount = ctx.accounts.collateral_token_account.amount;
+		require!(collateral_amount > 0, ErrorCode::InvalidAmount);
 
-        anchor_lang::solana_program::program::invoke(&refresh_ix, &refresh_accounts)?;
+		let round_id_bytes = round_state.round_id.to_le_bytes();
+		let (_, vault_signer_bump) = Pubkey::find_program_address(
+			&[ROUND_VAULT_SIGNER_SEED, &round_id_bytes],
+			ctx.program_id,
+		);
 
-        let redeem_ix = redeem_reserve_collateral(
-            *ctx.accounts.lending_program.key,
-            collateral_amount,
-            *ctx.accounts.collateral_vault_ata.to_account_info().key,
-            *ctx.accounts.round_vault_ata.to_account_info().key,
-            *ctx.accounts.reserve.key,
-            *ctx.accounts.reserve_collateral_mint.key,
-            *ctx.accounts.reserve_liquidity_supply.key,
-            *ctx.accounts.lending_market.key,
-            *ctx.accounts.lending_market_authority.key,
-            *ctx.accounts.vault_round_signer.key,
-        );
+		let signer_seeds: &[&[&[u8]]] = &[&[
+			ROUND_VAULT_SIGNER_SEED,
+			&round_id_bytes,
+			&[vault_signer_bump],
+		]];
 
-        let redeem_accounts = vec![
-            ctx.accounts.collateral_vault_ata.to_account_info(),
-            ctx.accounts.round_vault_ata.to_account_info(),
-            ctx.accounts.reserve.to_account_info(),
-            ctx.accounts.reserve_collateral_mint.to_account_info(),
-            ctx.accounts.reserve_liquidity_supply.to_account_info(),
-            ctx.accounts.lending_market.to_account_info(),
-            ctx.accounts.lending_market_authority.to_account_info(),
-            ctx.accounts.vault_round_signer.to_account_info(),
-            ctx.accounts.token_program.to_account_info(),
-        ];
+		let mut data = withdraw_discriminator().to_vec();
+		data.extend_from_slice(&collateral_amount.to_le_bytes());
 
-        let signer_seeds: &[&[&[u8]]] = &[&[
-            ROUND_VAULT_SIGNER_SEED,
-            &round_state.round_id.to_le_bytes(),
-            &[vault_signer_bump],
-        ]];
+		let accounts = vec![
+			AccountMeta::new(*ctx.accounts.vault_round_signer.key, true),
+			AccountMeta::new(ctx.accounts.collateral_token_account.key(), false),
+			AccountMeta::new(ctx.accounts.round_vault_ata.key(), false),
+			AccountMeta::new(ctx.accounts.payment_mint.key(), false),
+			AccountMeta::new_readonly(*ctx.accounts.lending_admin.key, false),
+			AccountMeta::new(*ctx.accounts.lending.key, false),
+			AccountMeta::new(*ctx.accounts.f_token_mint.key, false),
+			AccountMeta::new(*ctx.accounts.supply_token_reserves_liquidity.key, false),
+			AccountMeta::new(*ctx.accounts.lending_supply_position_on_liquidity.key, false),
+			AccountMeta::new_readonly(*ctx.accounts.rate_model.key, false),
+			AccountMeta::new(*ctx.accounts.vault.key, false),
+			AccountMeta::new(*ctx.accounts.claim_account.key, false),
+			AccountMeta::new(*ctx.accounts.liquidity.key, false),
+			AccountMeta::new_readonly(*ctx.accounts.liquidity_program.key, false),
+			AccountMeta::new_readonly(*ctx.accounts.rewards_rate_model.key, false),
+			AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+			AccountMeta::new_readonly(ctx.accounts.associated_token_program.key(), false),
+			AccountMeta::new_readonly(ctx.accounts.system_program.key(), false),
+		];
 
-        invoke_signed(&redeem_ix, &redeem_accounts, signer_seeds)?;
+		let instruction = Instruction {
+			program_id: *ctx.accounts.lending_program.key,
+			accounts,
+			data,
+		};
 
-        msg!("Redeemed {} collateral tokens from Port Finance", collateral_amount);
+		invoke_signed(
+			&instruction,
+			&[
+				ctx.accounts.vault_round_signer.clone(),
+				ctx.accounts.collateral_token_account.to_account_info(),
+				ctx.accounts.round_vault_ata.to_account_info(),
+				ctx.accounts.payment_mint.to_account_info(),
+				ctx.accounts.lending_admin.clone(),
+				ctx.accounts.lending.clone(),
+				ctx.accounts.f_token_mint.clone(),
+				ctx.accounts.supply_token_reserves_liquidity.clone(),
+				ctx.accounts.lending_supply_position_on_liquidity.clone(),
+				ctx.accounts.rate_model.clone(),
+				ctx.accounts.vault.clone(),
+				ctx.accounts.claim_account.clone(),
+				ctx.accounts.liquidity.clone(),
+				ctx.accounts.liquidity_program.clone(),
+				ctx.accounts.rewards_rate_model.clone(),
+				ctx.accounts.token_program.to_account_info(),
+				ctx.accounts.associated_token_program.to_account_info(),
+				ctx.accounts.system_program.to_account_info(),
+		],
+			signer_seeds,
+		)
+		.map_err(|e| {
+			msg!("Jupiter Lend withdraw CPI failed: {:?}", e);
+			error!(ErrorCode::CpiLendingProgramFailed)
+		})?;
 
-        
-        round_state.total_farmed_amount = ctx.accounts.round_vault_ata.amount - round_state.total_deposit;
-        
-        Ok(())
-    }
+		ctx.accounts.round_vault_ata.reload()?; // cập nhật lại số dư sau khi CPI trả token về
+		let current_vault_balance = ctx.accounts.round_vault_ata.amount;
+		round_state.total_farmed_amount = current_vault_balance
+			.saturating_sub(round_state.total_deposit);
+
+		msg!(
+			"Withdrew {} collateral tokens back to vault for round {}",
+			collateral_amount,
+			round_state.round_id
+		);
+
+		Ok(())
+	}
 }

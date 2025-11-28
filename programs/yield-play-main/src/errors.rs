@@ -18,4 +18,8 @@ pub enum ErrorCode {
     RoundNotCompleted,
     #[msg("Already claimed")]
     AlreadyClaimed,
+    #[msg("Invalid amount")]
+    InvalidAmount,
+    #[msg("CPI to lending program failed")]
+    CpiLendingProgramFailed,
 }
