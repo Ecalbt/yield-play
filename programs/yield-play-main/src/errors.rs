@@ -24,4 +24,6 @@ pub enum ErrorCode {
     CpiLendingProgramFailed,
     #[msg("Overflow occurred")]
     Overflow,
+    #[msg("User does not participate in this round")]
+    UserDoesNotParticipate,
 }
