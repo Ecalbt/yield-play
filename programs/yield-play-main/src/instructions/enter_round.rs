@@ -12,6 +12,14 @@ use crate::{
     state::*,
     errors::ErrorCode,
 };
+
+#[event]
+pub struct TicketPurchase {
+    pub round_id: u64,
+    pub user: Pubkey,
+    pub ticket_start_index: u64,
+    pub ticket_count: u64,
+}
 #[derive(Accounts)]
 pub struct EnterRound<'info> {
     #[account(mut)]
@@ -101,12 +109,20 @@ impl<'info> EnterRound<'info> {
         transfer_checked(cpi_ctx, token_amount, ctx.accounts.payment_mint.decimals)?;
 
         //update round state
+        let ticket_start_index = round_state.total_tickets;
         round_state.total_deposit += token_amount;
         round_state.total_tickets += amount;
 
         //update user round state
         user_round_state.deposit_amount += token_amount;
         user_round_state.ticket_count += amount;
+
+        emit!(TicketPurchase {
+            round_id: round_state.round_id,
+            user: ctx.accounts.user.key(),
+            ticket_start_index,
+            ticket_count: amount,
+        });
 
         Ok(())
     }
