@@ -31,7 +31,7 @@ pub mod yield_play_main {
         FulfillResult::process(ctx)
     }
 
-    pub fn enter_round(ctx: Context<EnterRound>, amount: f64) -> Result<()> {
+    pub fn enter_round(ctx: Context<EnterRound>, amount: u64) -> Result<()> {
         EnterRound::process(ctx, amount)
     }
     

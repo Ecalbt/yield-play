@@ -104,7 +104,7 @@ impl<'info> CreateRound<'info> {
         round_state.total_deposit = 0;
         round_state.total_refunded = 0;
         round_state.total_farmed_amount = 0;
-        round_state.total_tickets = 0 as f64;
+        round_state.total_tickets = 0;
 
         round_state.start_ts = arg.start_ts; 
         round_state.end_ts = arg.end_ts;   

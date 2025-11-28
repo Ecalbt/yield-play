@@ -22,4 +22,6 @@ pub enum ErrorCode {
     InvalidAmount,
     #[msg("CPI to lending program failed")]
     CpiLendingProgramFailed,
+    #[msg("Overflow occurred")]
+    Overflow,
 }

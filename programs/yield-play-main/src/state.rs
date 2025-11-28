@@ -22,7 +22,7 @@ pub struct RoundState {
     pub total_deposit: u64,
     pub total_refunded: u64,
     pub total_farmed_amount: u64,    // tổng số tiền farm được trong round
-    pub total_tickets: f64,
+    pub total_tickets: u64,
 
     pub start_ts: i64,
     pub end_ts: i64, 
@@ -40,7 +40,7 @@ pub struct UserRoundState {
     pub user: Pubkey,
     pub round_id: u64,
     pub deposit_amount: u64,
-    pub ticket_count: f64, 
+    pub ticket_count: u64, 
     pub is_claimed: bool,
 }
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
