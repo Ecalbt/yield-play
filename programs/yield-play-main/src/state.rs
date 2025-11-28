@@ -32,7 +32,7 @@ pub struct RoundState {
     pub second_prize: Pubkey,
     pub third_prize: Pubkey,
     
-    pub status: u8,              //RoundStatus
+    pub status: u8,
 }
 
 #[account]
@@ -47,6 +47,7 @@ pub struct UserRoundState {
 pub enum RoundStatus {
     Started,
     Ended,
+    ChoosingWinners,
     RewardsDistributed,
 }
 impl RoundStatus {
@@ -54,7 +55,8 @@ impl RoundStatus {
         match value {
             0 => Some(RoundStatus::Started),
             1 => Some(RoundStatus::Ended),
-            2 => Some(RoundStatus::RewardsDistributed),
+            2 => Some(RoundStatus::ChoosingWinners),
+            3 => Some(RoundStatus::RewardsDistributed),
             _ => None,
         }
     }
@@ -63,14 +65,15 @@ impl RoundStatus {
         match self {
             RoundStatus::Started => 0,
             RoundStatus::Ended => 1,
-            RoundStatus::RewardsDistributed => 2,
+            RoundStatus::ChoosingWinners => 2,
+            RoundStatus::RewardsDistributed => 3,
         }
     }
 }
 impl<'info>  RoundState {
     pub fn update_status(&mut self, now_ts: u64) {
         if now_ts >= (self.end_ts + self.gap_time) as u64 {
-            self.status = RoundStatus::RewardsDistributed.to_u8();
+            self.status = RoundStatus::ChoosingWinners.to_u8();
             return;
         }
         else if now_ts >= self.end_ts as u64 {

@@ -119,6 +119,7 @@ impl<'info> CreateRound<'info> {
         round_state.second_prize = Pubkey::default();   
         round_state.third_prize = Pubkey::default();
 
+
         lottery_state.global_round_counter += 1;
         // Increment global round counter
 

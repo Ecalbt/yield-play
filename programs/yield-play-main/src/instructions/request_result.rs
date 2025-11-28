@@ -91,7 +91,7 @@ impl<'info> RequestResult<'info> {
         
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         orao_solana_vrf::cpi::request_v2(cpi_ctx, round_state.round_seed)?;
-
+        
         Ok(())
     }
 }

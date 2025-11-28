@@ -37,7 +37,8 @@ impl<'info> ChooseWinner<'info> {
         let now_ts = Clock::get()?.unix_timestamp as u64;
         round_state.update_status(now_ts);
         require!(round_state.admin == ctx.accounts.authority.key(), ErrorCode::Unauthorized);
-        require!(round_state.status == RoundStatus::Ended.to_u8(), ErrorCode::RoundNotActive);
+        require!(round_state.status == RoundStatus::ChoosingWinners.to_u8(), ErrorCode::RoundNotActive);
+
 
         msg!("now_ts: {}", now_ts);
         msg!("round_state.end_ts: {}", round_state.end_ts);
@@ -46,6 +47,7 @@ impl<'info> ChooseWinner<'info> {
         round_state.first_prize = ctx.accounts.first_prize.key();
         round_state.second_prize =  ctx.accounts.second_prize.key();
         round_state.third_prize =  ctx.accounts.third_prize.key();
+        round_state.status = RoundStatus::RewardsDistributed.to_u8();
 
         Ok(())
     }
