@@ -26,4 +26,8 @@ pub enum ErrorCode {
     Overflow,
     #[msg("User does not participate in this round")]
     UserDoesNotParticipate,
+    #[msg("Randomness account deserialization failed")]
+    RandomnessAccountDeserializeFailed,
+    #[msg("Randomness not fulfilled")]
+    RandomnessNotFulfilled,
 }
