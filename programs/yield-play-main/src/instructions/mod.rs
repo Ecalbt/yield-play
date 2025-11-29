@@ -6,6 +6,7 @@ pub mod choose_winner;
 pub mod update_price;
 pub mod deposit_to_lending;
 pub mod claim;
+pub mod update_balance;
 
 pub use initialize::*;
 pub use create_round::*;
@@ -15,3 +16,4 @@ pub use choose_winner::*;
 pub use update_price::*;
 pub use deposit_to_lending::*;
 pub use claim::*;
+pub use update_balance::*;

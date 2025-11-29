@@ -72,6 +72,9 @@ impl RoundStatus {
 }
 impl<'info>  RoundState {
     pub fn update_status(&mut self, now_ts: u64) {
+        if(self.status == RoundStatus::RewardsDistributed.to_u8()) {
+            return;
+        }
         if now_ts >= (self.end_ts + self.gap_time) as u64 {
             self.status = RoundStatus::ChoosingWinners.to_u8();
             return;

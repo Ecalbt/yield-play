@@ -51,6 +51,10 @@ pub mod yield_play_main {
         WithdrawFromLending::process(ctx)
     }
 
+    pub fn update_balance(ctx: Context<UpdateBalance>) -> Result<()> {
+        UpdateBalance::process(ctx)
+    }
+
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         Claim::process(ctx)
     }
