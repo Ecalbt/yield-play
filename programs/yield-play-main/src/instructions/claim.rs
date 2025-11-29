@@ -64,8 +64,8 @@ impl<'info> Claim<'info> {
     pub fn process(ctx: Context<Claim>) -> Result<()> {
         let user_round_state = &mut ctx.accounts.user_round_state;
         let round_state = &mut ctx.accounts.round_state;
-        let now_ts = Clock::get()?.unix_timestamp;
-        round_state.update_status(now_ts as u64);
+
+
         require!(round_state.status == RoundStatus::RewardsDistributed.to_u8(), ErrorCode::RoundNotCompleted);
         require!(!user_round_state.is_claimed, ErrorCode::AlreadyClaimed);
 
@@ -74,10 +74,12 @@ impl<'info> Claim<'info> {
         if round_state.first_prize == ctx.accounts.user.key() {
             bonus += (round_state.total_farmed_amount as f64 * 0.5) as u64;
 
-        } else if round_state.second_prize == ctx.accounts.user.key() {
+        } 
+        if round_state.second_prize == ctx.accounts.user.key() {
 
             bonus += (round_state.total_farmed_amount as f64 * 0.3) as u64;
-        } else if round_state.third_prize == ctx.accounts.user.key() {
+        } 
+        if round_state.third_prize == ctx.accounts.user.key() {
 
             bonus += (round_state.total_farmed_amount as f64 * 0.2) as u64;
         }
