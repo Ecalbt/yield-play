@@ -75,6 +75,7 @@ describe("yield-play-main", () => {
   let users : anchor.web3.Keypair[] = [];
   let usersState: PublicKey[] = [];
   let depositContext: any;
+  let withdrawContext: any;
   let fTokenMintDevnet: PublicKey;
   let adminAta: PublicKey;
 
@@ -156,9 +157,28 @@ describe("yield-play-main", () => {
       systemProgram : new PublicKey("11111111111111111111111111111111"),
     };
     fTokenMintDevnet = new PublicKey("2Wx1tTo8PkTP95NyKoFNPTtcLnYaSowDkExwbHDKAZQu");
-    console.log("Jupiter Lend Deposit Accounts:");
-    console.log(depositContext);
-    console.log(await provider.connection.getAccountInfo(depositContext.fTokenMint));
+
+    withdrawContext = {
+        lendingAdmin : new PublicKey("DeF2BVMjWdCamK71nqBZ7uzQkLeW9MJ6C7zoCKLJXEmW"),
+        lending : new PublicKey("98Uy7eonumvRbhQvP5Jt7B3WjNqpndioMF99xvR7sDVa"),
+        fTokenMint : new PublicKey("2Wx1tTo8PkTP95NyKoFNPTtcLnYaSowDkExwbHDKAZQu"),
+        supplyTokenReservesLiquidity : new PublicKey("644Eh222dNe1V6sSRkYHBcdpxfjtxBBptAJ6mZujRRNo"),
+        lendingSupplyPositionOnLiquidity : new PublicKey("B5JAZXGKaZfWsUrauprZVNQM7HwXN8AfKVTt25qtDKYV"),
+        rateModel : new PublicKey("CpSRFppSpkdPw7juvRpSxwVyZMN3y8g7cHXCbrc3MBUs"),
+        vault : new PublicKey("CWFPa1gcDqGyeTHTmdbhGjCnQv7eRfdhnBpZKFzNr1R2"),
+        claimAccount : new PublicKey("dUnUR9XxaVWZo5FUi5DGqsMWfAzYPdtgkuiDbPLLtYX"), ////
+        liquidity : new PublicKey("DFHSbFzMU67yHK9yLsLBLso7aEnzrB4ZQR7KBujmSU3M"),
+        liquidityProgram : new PublicKey("5uDkCoM96pwGYhAUucvCzLfm5UcjVRuxz6gH81RnRBmL"),
+        rewardsRateModel : new PublicKey("GGtryeuwjcWoG6zg4Xi1vUJN1xRhypms4xt129BKTUxt"),
+        tokenProgram : new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+        associatedTokenProgram : new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"),
+        systemProgram : new PublicKey("11111111111111111111111111111111"),
+    }
+    // console.log("Jupiter Lend Deposit Accounts:");
+    // console.log(depositContext);
+    // console.log(await provider.connection.getAccountInfo(depositContext.fTokenMint));
+    console.log("Jupiter Withdraw Accounts:");
+    console.log(withdrawContext);
     
      adminAta = await getAssociatedTokenAddressSync(
       paymentMint,
@@ -166,6 +186,8 @@ describe("yield-play-main", () => {
     );
     const adminAccount = await getAccount(provider.connection, adminAta);
     console.log("Admin balance:", adminAccount.amount.toString());
+    // const acc = await getAccountInfo(withdrawContext.lendingAdmin);
+    // console.log(acc.owner.toBase58());  
 
   });
 
@@ -478,6 +500,13 @@ describe("yield-play-main", () => {
       TOKEN_PROGRAM_ID
     );
     console.log("Round Vault ATA Balance before deposit:", Number(vaultAtaAccountBefore.amount));
+    const destinationAtaAccountBefore = await getAccount(
+      provider.connection,
+      destinationAta,
+      undefined,
+      TOKEN_PROGRAM_ID
+    );
+    console.log("Destination ATA Balance before deposit:", Number(destinationAtaAccountBefore.amount));
 
     console.log("Testing deposit with mock Jupiter accounts...");
     try {
@@ -507,8 +536,7 @@ describe("yield-play-main", () => {
         })
         .signers([])
         .rpc();
-      console.log("❌ Expected CPI to fail with mock accounts");
-      console.log("Deposit instruction succeeded unexpectedly:", ix);
+      console.log("Deposit transaction signature: ", ix);
     } catch (err: any) {
       if (err.error?.errorCode?.code === "CpiLendingProgramFailed") {
         console.log("✅ Deposit instruction correctly attempted CPI (failed as expected with mock accounts)");
@@ -523,87 +551,87 @@ describe("yield-play-main", () => {
       TOKEN_PROGRAM_ID
     );
     console.log("Round Vault ATA Balance after deposit:", Number(vaultAtaAccountAfter.amount));
+    const destinationAtaAccountAfter = await getAccount(
+      provider.connection,
+      destinationAta,
+      undefined, 
+      TOKEN_PROGRAM_ID
+    );
+    console.log("Destination ATA Balance after deposit:", Number(destinationAtaAccountAfter.amount));
   });
 
-  // it.skip("Withdraw from Jupiter lending on devnet with USDC", async () => {
-  //   // Get Jupiter Lend withdraw context
-  //   const { accounts: withdrawAccounts } = await getWithdrawContext({
-  //     wallet: vaultRoundSignerPDA,
-  //     tokenMint: paymentMint,
-  //   });
+  it("Withdraw from Jupiter lending on devnet with USDC", async () => {
+    // Get Jupiter Lend withdraw context
+    const vaultAtaAccountBefore = await getAccount(
+      provider.connection,
+      roundVaultAta,
+      undefined, 
+      TOKEN_PROGRAM_ID
+    );
+    console.log("Round Vault ATA Balance before withdraw:", Number(vaultAtaAccountBefore.amount));
 
-  //   console.log("Jupiter Lend Withdraw Accounts:");
-  //   console.log("  lending:", withdrawAccounts.lending.toBase58());
-  //   console.log("  fTokenMint:", withdrawAccounts.fTokenMint.toBase58());
-  //   console.log("  collateralTokenAccount:", withdrawAccounts.collateralTokenAccount.toBase58());
-  //   console.log("  claimAccount:", withdrawAccounts.claimAccount?.toBase58() || "none");
+    const destinationAtaAccountBefore = await getAccount(
+      provider.connection,
+      destinationAta,
+      undefined, 
+      TOKEN_PROGRAM_ID
+    );
+    console.log("Destination ATA Balance before withdraw:", Number(destinationAtaAccountBefore.amount));
+    
 
-  //   // Check if vault has collateral tokens to withdraw
-  //   try {
-  //     const collateralBalance = await getAccount(
-  //       provider.connection,
-  //       withdrawAccounts.collateralTokenAccount,
-  //       undefined,
-  //       TOKEN_PROGRAM_ID,
-  //     );
-  //     console.log("Collateral token balance:", collateralBalance.amount.toString());
-
-  //     if (collateralBalance.amount === BigInt(0)) {
-  //       console.log("No collateral tokens to withdraw. Run deposit test first.");
-  //       return;
-  //     }
-  //   } catch (err) {
-  //     console.log("Collateral token account does not exist yet. Run deposit test first.");
-  //     return;
-  //   }
-
-  //   try {
-  //     const tx = await program.methods
-  //       .withdrawFromLending()
-  //       .accounts({
-  //         authority: admin.publicKey,
-  //         roundState: firstRoundPDA,
-  //         vaultRoundSigner: vaultRoundSignerPDA,
-  //         paymentMint: paymentMint,
-  //         roundVaultAta: roundVaultAta,
-  //         collateralTokenAccount: withdrawAccounts.collateralTokenAccount,
-  //         lendingAdmin: withdrawAccounts.lendingAdmin,
-  //         lending: withdrawAccounts.lending,
-  //         fTokenMint: withdrawAccounts.fTokenMint,
-  //         supplyTokenReservesLiquidity: withdrawAccounts.supplyTokenReservesLiquidity,
-  //         lendingSupplyPositionOnLiquidity: withdrawAccounts.lendingSupplyPositionOnLiquidity,
-  //         rateModel: withdrawAccounts.rateModel,
-  //         vault: withdrawAccounts.vault,
-  //         claimAccount: withdrawAccounts.claimAccount || SystemProgram.programId,
-  //         liquidity: withdrawAccounts.liquidity,
-  //         liquidityProgram: withdrawAccounts.liquidityProgram,
-  //         rewardsRateModel: withdrawAccounts.rewardsRateModel,
-  //         tokenProgram: TOKEN_PROGRAM_ID,
-  //         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-  //         systemProgram: SystemProgram.programId,
-  //         lendingProgram: JUPITER_LEND_PROGRAM,
-  //       })
-  //       .rpc();
+    try {
+      const tx = await program.methods
+        .withdrawFromLending()
+        .accountsPartial({
+          authority: admin.publicKey,
+          roundState: firstRoundPDA,
+          vaultRoundSigner: vaultRoundSignerPDA,
+          paymentMint: paymentMint,
+          roundVaultAta: roundVaultAta,
+          collateralTokenAccount: destinationAta,
+          lendingAdmin: withdrawContext.lendingAdmin,
+          lending: withdrawContext.lending,
+          fTokenMint: fTokenMintDevnet,
+          supplyTokenReservesLiquidity: withdrawContext.supplyTokenReservesLiquidity,
+          lendingSupplyPositionOnLiquidity: withdrawContext.lendingSupplyPositionOnLiquidity,
+          rateModel: withdrawContext.rateModel,
+          vault: withdrawContext.vault,
+          claimAccount: withdrawContext.claimAccount,
+          liquidity: withdrawContext.liquidity,
+          liquidityProgram: withdrawContext.liquidityProgram,
+          rewardsRateModel: withdrawContext.rewardsRateModel,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          lendingProgram: JUPITER_LEND_PROGRAM,
+        })
+        .signers([])
+        .rpc();
       
-  //     console.log("Withdraw transaction:", tx);
-      
-  //     // Check vault balance increased
-  //     const vaultBalanceAfter = await getAccount(
-  //       provider.connection,
-  //       roundVaultAta,
-  //       undefined,
-  //       TOKEN_PROGRAM_ID,
-  //     );
-  //     console.log("Vault balance after withdraw:", vaultBalanceAfter.amount.toString());
-      
-  //     // Check round state was updated
-  //     const roundStateAfter = await program.account.roundState.fetch(firstRoundPDA);
-  //     console.log("Total farmed amount after withdraw:", roundStateAfter.totalFarmedAmount.toString());
-  //   } catch (err: any) {
-  //     console.error("Withdraw failed:", err);
-  //     throw err;
-  //   }
-  // });
+      console.log("Withdraw transaction:", tx);
+    } catch (err: any) {
+      if (err.error?.errorCode?.code === "CpiLendingProgramFailed") {
+        console.log("✅ Withdraw instruction correctly attempted CPI (failed as expected with mock accounts)");
+      } else {
+        console.log("⚠️  Withdraw failed with:", err.message);
+      }
+    }
+    // Check vault balance increased
+      const vaultBalanceAfter = await getAccount(
+        provider.connection,
+        roundVaultAta,
+        undefined,
+        TOKEN_PROGRAM_ID,
+      );
+      console.log("Vault balance after withdraw:", Number(vaultBalanceAfter.amount));
+      const destinationBalanceAfter = await getAccount(
+        provider.connection,
+        destinationAta,
+        undefined,
+        TOKEN_PROGRAM_ID,
+      );
+      console.log("Destination balance after withdraw:", Number(destinationBalanceAfter.amount));
+  });
 
   it.skip("Update Balance!", async () => {
     await mintTo(

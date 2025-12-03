@@ -53,9 +53,12 @@ pub struct DepositToLending<'info> {
 	)]
 	pub round_vault_ata: InterfaceAccount<'info, TokenAccount>,
 
-	/// CHECK: ATA (or wallet) that receives the f-token collateral
-	#[account(mut)]
-	pub recipient_token_account: AccountInfo<'info>,
+	#[account(
+		mut,
+		associated_token::mint = f_token_mint,
+		associated_token::authority = vault_round_signer,
+	)]
+	pub recipient_token_account: InterfaceAccount<'info, TokenAccount>,
 
 	/// CHECK: Jupiter Lend configuration/admin account
 	#[account(mut)]
@@ -131,7 +134,7 @@ impl<'info> DepositToLending<'info> {
 		let accounts = vec![
 			AccountMeta::new(*ctx.accounts.vault_round_signer.key, true), // signer
 			AccountMeta::new(ctx.accounts.round_vault_ata.key(), false),
-			AccountMeta::new(*ctx.accounts.recipient_token_account.key, false),
+			AccountMeta::new(ctx.accounts.recipient_token_account.key(), false),
 			AccountMeta::new_readonly(ctx.accounts.payment_mint.key(), false), // mint is readonly
 			AccountMeta::new_readonly(*ctx.accounts.lending_admin.key, false),
 			AccountMeta::new(*ctx.accounts.lending.key, false),
@@ -206,6 +209,7 @@ pub struct WithdrawFromLending<'info> {
 
 	/// CHECK: PDA signer for all vault interactions
 	#[account(
+		mut,
 		seeds = [ROUND_VAULT_SIGNER_SEED, &round_state.round_id.to_le_bytes()],
 		bump,
 	)]
@@ -228,6 +232,7 @@ pub struct WithdrawFromLending<'info> {
 	pub collateral_token_account: InterfaceAccount<'info, TokenAccount>,
 
 	/// CHECK: Jupiter Lend configuration/admin account
+	#[account(mut)]
 	pub lending_admin: AccountInfo<'info>,
 
 	/// CHECK: Jupiter Lend state account
@@ -262,6 +267,7 @@ pub struct WithdrawFromLending<'info> {
 	pub liquidity: AccountInfo<'info>,
 
 	/// CHECK: Liquidity program invoked by Jupiter Lend
+	#[account(mut)]
 	pub liquidity_program: AccountInfo<'info>,
 
 	/// CHECK: Rewards model account
@@ -271,18 +277,22 @@ pub struct WithdrawFromLending<'info> {
 	pub associated_token_program: Program<'info, AssociatedToken>,
 	pub system_program: Program<'info, System>,
 
+	
 	/// CHECK: Jupiter Lend program ID
-	pub lending_program: AccountInfo<'info>,
+	pub lending_program: UncheckedAccount<'info>,
 }
 
 impl<'info> WithdrawFromLending<'info> {
 	pub fn process(ctx: Context<WithdrawFromLending>) -> Result<()> {
 		let round_state = &mut ctx.accounts.round_state;
+		let lending_program = &ctx.accounts.lending_program;
 
 		require!(round_state.admin == ctx.accounts.authority.key(), ErrorCode::Unauthorized);
 
 		let collateral_amount = ctx.accounts.collateral_token_account.amount;
 		require!(collateral_amount > 0, ErrorCode::InvalidAmount);
+
+		// require!(round_state.status >= RoundStatus::ChoosingWinners.to_u8(), ErrorCode::RoundNotEnded);
 
 		let round_id_bytes = round_state.round_id.to_le_bytes();
 		let (_, vault_signer_bump) = Pubkey::find_program_address(
@@ -303,9 +313,9 @@ impl<'info> WithdrawFromLending<'info> {
 			AccountMeta::new(*ctx.accounts.vault_round_signer.key, true),
 			AccountMeta::new(ctx.accounts.collateral_token_account.key(), false),
 			AccountMeta::new(ctx.accounts.round_vault_ata.key(), false),
-			AccountMeta::new(ctx.accounts.payment_mint.key(), false),
 			AccountMeta::new_readonly(*ctx.accounts.lending_admin.key, false),
 			AccountMeta::new(*ctx.accounts.lending.key, false),
+			AccountMeta::new_readonly(ctx.accounts.payment_mint.key(), false),
 			AccountMeta::new(*ctx.accounts.f_token_mint.key, false),
 			AccountMeta::new(*ctx.accounts.supply_token_reserves_liquidity.key, false),
 			AccountMeta::new(*ctx.accounts.lending_supply_position_on_liquidity.key, false),
@@ -313,7 +323,7 @@ impl<'info> WithdrawFromLending<'info> {
 			AccountMeta::new(*ctx.accounts.vault.key, false),
 			AccountMeta::new(*ctx.accounts.claim_account.key, false),
 			AccountMeta::new(*ctx.accounts.liquidity.key, false),
-			AccountMeta::new_readonly(*ctx.accounts.liquidity_program.key, false),
+			AccountMeta::new(*ctx.accounts.liquidity_program.key, false),
 			AccountMeta::new_readonly(*ctx.accounts.rewards_rate_model.key, false),
 			AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
 			AccountMeta::new_readonly(ctx.accounts.associated_token_program.key(), false),
@@ -321,7 +331,7 @@ impl<'info> WithdrawFromLending<'info> {
 		];
 
 		let instruction = Instruction {
-			program_id: *ctx.accounts.lending_program.key,
+			program_id: lending_program.key(),
 			accounts,
 			data,
 		};
@@ -332,9 +342,9 @@ impl<'info> WithdrawFromLending<'info> {
 				ctx.accounts.vault_round_signer.clone(),
 				ctx.accounts.collateral_token_account.to_account_info(),
 				ctx.accounts.round_vault_ata.to_account_info(),
-				ctx.accounts.payment_mint.to_account_info(),
 				ctx.accounts.lending_admin.clone(),
 				ctx.accounts.lending.clone(),
+				ctx.accounts.payment_mint.to_account_info(),
 				ctx.accounts.f_token_mint.clone(),
 				ctx.accounts.supply_token_reserves_liquidity.clone(),
 				ctx.accounts.lending_supply_position_on_liquidity.clone(),
