@@ -62,14 +62,6 @@ pub struct CreateRound<'info> {
     )]
     pub round_vault_ata: InterfaceAccount<'info, TokenAccount>,
 
-    // Destination mint and ATA
-    pub destination_mint: InterfaceAccount<'info, Mint>,
-    #[account(
-        mut,
-        associated_token::mint = destination_mint,
-        associated_token::authority = vault_round_signer,
-    )]
-    pub destination_ata: InterfaceAccount<'info, TokenAccount>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Interface<'info, TokenInterface>,
