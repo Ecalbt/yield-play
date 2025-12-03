@@ -38,6 +38,7 @@ pub struct DepositToLending<'info> {
 
 	/// CHECK: PDA that owns the round vault
 	#[account(
+		mut,
 		seeds = [ROUND_VAULT_SIGNER_SEED, &round_state.round_id.to_le_bytes()],
 		bump,
 	)]
@@ -54,9 +55,10 @@ pub struct DepositToLending<'info> {
 
 	/// CHECK: ATA (or wallet) that receives the f-token collateral
 	#[account(mut)]
-	pub recipient_token_account: InterfaceAccount<'info, TokenAccount>,
+	pub recipient_token_account: AccountInfo<'info>,
 
 	/// CHECK: Jupiter Lend configuration/admin account
+	#[account(mut)]
 	pub lending_admin: AccountInfo<'info>,
 
 	/// CHECK: Jupiter Lend state account
@@ -87,6 +89,7 @@ pub struct DepositToLending<'info> {
 	pub liquidity: AccountInfo<'info>,
 
 	/// CHECK: Liquidity program invoked by Jupiter Lend
+	#[account(mut)]
 	pub liquidity_program: AccountInfo<'info>,
 
 	/// CHECK: Rewards model account
@@ -97,13 +100,14 @@ pub struct DepositToLending<'info> {
 	pub system_program: Program<'info, System>,
 
 	/// CHECK: Jupiter Lend program ID
-	pub lending_program: AccountInfo<'info>,
+	pub lending_program: UncheckedAccount<'info>,
 }
 
 
 impl<'info> DepositToLending<'info> {
 	pub fn process(ctx: Context<DepositToLending>) -> Result<()> {
 		let round_state = &ctx.accounts.round_state;
+		let lending_program = &ctx.accounts.lending_program;
 
 		require!(round_state.admin == ctx.accounts.authority.key(), ErrorCode::Unauthorized);
 		let amount = ctx.accounts.round_vault_ata.amount;
@@ -125,10 +129,10 @@ impl<'info> DepositToLending<'info> {
 		data.extend_from_slice(&amount.to_le_bytes());
 
 		let accounts = vec![
-			AccountMeta::new(*ctx.accounts.vault_round_signer.key, true),
+			AccountMeta::new(*ctx.accounts.vault_round_signer.key, true), // signer
 			AccountMeta::new(ctx.accounts.round_vault_ata.key(), false),
-			AccountMeta::new(ctx.accounts.recipient_token_account.key(), false),
-			AccountMeta::new(ctx.accounts.payment_mint.key(), false),
+			AccountMeta::new(*ctx.accounts.recipient_token_account.key, false),
+			AccountMeta::new_readonly(ctx.accounts.payment_mint.key(), false), // mint is readonly
 			AccountMeta::new_readonly(*ctx.accounts.lending_admin.key, false),
 			AccountMeta::new(*ctx.accounts.lending.key, false),
 			AccountMeta::new(*ctx.accounts.f_token_mint.key, false),
@@ -137,7 +141,7 @@ impl<'info> DepositToLending<'info> {
 			AccountMeta::new_readonly(*ctx.accounts.rate_model.key, false),
 			AccountMeta::new(*ctx.accounts.vault.key, false),
 			AccountMeta::new(*ctx.accounts.liquidity.key, false),
-			AccountMeta::new_readonly(*ctx.accounts.liquidity_program.key, false),
+			AccountMeta::new(*ctx.accounts.liquidity_program.key, false),
 			AccountMeta::new_readonly(*ctx.accounts.rewards_rate_model.key, false),
 			AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
 			AccountMeta::new_readonly(ctx.accounts.associated_token_program.key(), false),
@@ -145,7 +149,7 @@ impl<'info> DepositToLending<'info> {
 		];
 
 		let instruction = Instruction {
-			program_id: *ctx.accounts.lending_program.key,
+			program_id: lending_program.key(),
 			accounts,
 			data,
 		};
@@ -350,11 +354,6 @@ impl<'info> WithdrawFromLending<'info> {
 			msg!("Jupiter Lend withdraw CPI failed: {:?}", e);
 			error!(ErrorCode::CpiLendingProgramFailed)
 		})?;
-
-		ctx.accounts.round_vault_ata.reload()?; // cập nhật lại số dư sau khi CPI trả token về
-		let current_vault_balance = ctx.accounts.round_vault_ata.amount;
-		round_state.total_farmed_amount = current_vault_balance
-			.saturating_sub(round_state.total_deposit);
 
 		msg!(
 			"Withdrew {} collateral tokens back to vault for round {}",
