@@ -69,21 +69,8 @@ impl<'info> Claim<'info> {
         require!(round_state.status == RoundStatus::RewardsDistributed.to_u8(), ErrorCode::RoundNotCompleted);
         require!(!user_round_state.is_claimed, ErrorCode::AlreadyClaimed);
 
-        let mut amount_to_claim = user_round_state.deposit_amount;
-        let mut bonus = 0;
-        if round_state.first_prize == ctx.accounts.user.key() {
-            bonus += (round_state.total_farmed_amount as f64 * 0.5) as u64;
-
-        } 
-        if round_state.second_prize == ctx.accounts.user.key() {
-
-            bonus += (round_state.total_farmed_amount as f64 * 0.3) as u64;
-        } 
-        if round_state.third_prize == ctx.accounts.user.key() {
-
-            bonus += (round_state.total_farmed_amount as f64 * 0.2) as u64;
-        }
-        amount_to_claim = amount_to_claim.checked_add(bonus).unwrap() as u64;
+        let mut amount_to_claim = user_round_state.amount_to_claim;
+        
 
         if amount_to_claim > 0 {
             let (_, vault_signer_bump) = Pubkey::find_program_address(

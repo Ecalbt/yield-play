@@ -42,6 +42,7 @@ pub struct UserRoundState {
     pub deposit_amount: u64,
     pub ticket_count: u64, 
     pub is_claimed: bool,
+    pub amount_to_claim: u64,
 }
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
 pub enum RoundStatus {

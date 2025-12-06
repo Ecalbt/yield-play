@@ -92,6 +92,7 @@ impl<'info> EnterRound<'info> {
             user_round_state.deposit_amount = 0;
             user_round_state.ticket_count = 0;
             user_round_state.is_claimed = false;
+            user_round_state.amount_to_claim = 0;
         }
 
         
