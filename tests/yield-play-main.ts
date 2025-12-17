@@ -690,7 +690,12 @@ describe("yield-play-main", () => {
     console.log("Waiting for round to end: ", waitingTime);
     await new Promise(resolve => setTimeout(resolve, waitingTime * 1000)); //wait to let round end
 
-    const ix = await program.methods.chooseWinner()
+    let arg = {
+      firstPrizeRate: new BN(500),
+      secondPrizeRate: new BN(300),
+      thirdPrizeRate: new BN(200),
+    }
+    const ix = await program.methods.chooseWinner(arg)
     .accountsPartial({
       authority: admin.publicKey,
       roundState: firstRoundPDA,

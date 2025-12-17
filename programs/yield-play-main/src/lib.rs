@@ -35,8 +35,8 @@ pub mod yield_play_main {
         EnterRound::process(ctx, amount)
     }
     
-    pub fn choose_winner(ctx: Context<ChooseWinner>) -> Result<()> {
-        ChooseWinner::process(ctx)
+    pub fn choose_winner(ctx: Context<ChooseWinner>, arg: ChooseWinnerArgs) -> Result<()> {
+        ChooseWinner::process(ctx, arg)
     }
 
     pub fn update_price(ctx: Context<UpdatePrice>) -> Result<()> {

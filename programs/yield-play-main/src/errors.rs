@@ -30,4 +30,6 @@ pub enum ErrorCode {
     RandomnessAccountDeserializeFailed,
     #[msg("Randomness not fulfilled")]
     RandomnessNotFulfilled,
+    #[msg("Invalid prize distribution")]
+    InvalidPrizeDistribution,
 }

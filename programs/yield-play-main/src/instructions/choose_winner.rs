@@ -9,7 +9,15 @@ use crate::{
     errors::ErrorCode,
 };
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct ChooseWinnerArgs {
+    first_prize_rate: u64,  //1000 = 1%
+    second_prize_rate: u64, 
+    third_prize_rate: u64,
+}
+
 #[derive(Accounts)]
+#[instruction(arg: ChooseWinnerArgs)]
 pub struct ChooseWinner<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -58,7 +66,8 @@ pub struct ChooseWinner<'info> {
     pub system_program: Program<'info, System>,
 }
 impl<'info> ChooseWinner<'info> {
-    pub fn process(ctx: Context<ChooseWinner>) -> Result<()> {
+    pub fn process(ctx: Context<ChooseWinner>, arg: ChooseWinnerArgs) -> Result<()> {
+        
         let round_state = &mut ctx.accounts.round_state;
         let now_ts = Clock::get()?.unix_timestamp as u64;
         let first_prize_round_state = &mut ctx.accounts.first_prize_round_state;
@@ -83,11 +92,18 @@ impl<'info> ChooseWinner<'info> {
         round_state.first_prize = ctx.accounts.first_prize.key();
         round_state.second_prize =  ctx.accounts.second_prize.key();
         round_state.third_prize =  ctx.accounts.third_prize.key();
+        let first_prize_percent = arg.first_prize_rate as f64 / 1000.0;
+        let second_prize_percent = arg.second_prize_rate as f64 / 1000.0;
+        let third_prize_percent = arg.third_prize_rate as f64 / 1000.0;
 
-        let first_prize_bonus = (round_state.total_farmed_amount as f64 * 0.5) as u64;
-        let second_prize_bonus = (round_state.total_farmed_amount as f64 * 0.3) as u64;
-        let third_prize_bonus = (round_state.total_farmed_amount as f64 * 0.2) as u64;
+        require!(
+            (first_prize_percent + second_prize_percent + third_prize_percent - 1.0).abs() < f64::EPSILON,
+            ErrorCode::InvalidPrizeDistribution
+        );
 
+        let first_prize_bonus = (round_state.total_farmed_amount as f64 * first_prize_percent) as u64;
+        let second_prize_bonus = (round_state.total_farmed_amount as f64 * second_prize_percent) as u64;
+        let third_prize_bonus = (round_state.total_farmed_amount as f64 * third_prize_percent) as u64;
 
 
         if first_prize_round_state.key() == second_prize_round_state.key() {
