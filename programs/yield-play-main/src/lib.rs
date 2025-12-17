@@ -58,6 +58,13 @@ pub mod yield_play_main {
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         Claim::process(ctx)
     }
+
+    pub fn nominate_authority(ctx: Context<NominateAuthority>, new_admin: Pubkey) -> Result<()> {
+        NominateAuthority::process(ctx, new_admin)
+    }
+    pub fn accept_authority(ctx: Context<AcceptAuthority>) -> Result<()> {
+        AcceptAuthority::process(ctx)
+    }
 }   
 
 

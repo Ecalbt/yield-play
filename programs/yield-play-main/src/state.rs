@@ -10,6 +10,7 @@ pub struct LotteryState {
 #[account]
 pub struct RoundState {
     pub admin: Pubkey,
+    pub pending_admin: Pubkey,
     pub round_id: u64,
 
     pub round_seed: [u8; 32],         // (=keccak(unix_timestamp || global_round_counter)

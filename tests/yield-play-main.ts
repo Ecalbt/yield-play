@@ -132,8 +132,8 @@ describe("yield-play-main", () => {
     console.log("Lottery State PDA: ", lotteryStatePDA.toBase58());
 
     
-    // paymentMint = new PublicKey("3fqZiPHypmkdaWARbB6LmLzMYChzoUkvmYqvSDPS8y5w");
-    paymentMint = USDC_DEVNET_MINT;
+    paymentMint = new PublicKey("3fqZiPHypmkdaWARbB6LmLzMYChzoUkvmYqvSDPS8y5w");
+    // paymentMint = USDC_DEVNET_MINT;
     console.log("Payment Mint: ", paymentMint.toBase58());
     // depositContext = await getDepositContext({
     //   asset: paymentMint, // Use consistent USDC mint
@@ -180,12 +180,12 @@ describe("yield-play-main", () => {
     console.log("Jupiter Withdraw Accounts:");
     console.log(withdrawContext);
     
-     adminAta = await getAssociatedTokenAddressSync(
-      paymentMint,
-      admin.publicKey
-    );
-    const adminAccount = await getAccount(provider.connection, adminAta);
-    console.log("Admin balance:", adminAccount.amount.toString());
+    //  adminAta = await getAssociatedTokenAddressSync(
+    //   paymentMint,
+    //   admin.publicKey
+    // );
+    // const adminAccount = await getAccount(provider.connection, adminAta);
+    // console.log("Admin balance:", adminAccount.amount.toString());
     // const acc = await getAccountInfo(withdrawContext.lendingAdmin);
     // console.log(acc.owner.toBase58());  
 
@@ -276,7 +276,7 @@ describe("yield-play-main", () => {
       };
       const tx = await program.methods
         .createRound(arg)
-        .accounts({
+        .accountsPartial({
           authority: admin.publicKey,
           lotteryState: lotteryStatePDA,
           roundState: firstRoundPDA,
@@ -310,6 +310,16 @@ describe("yield-play-main", () => {
     console.log("    vrf_seed:", firstRoundState.vrfSeed);
 
     //create ATA for round vault
+    let pendingAdmin = anchor.web3.Keypair.generate();
+    console.log("Nominating new admin: ", pendingAdmin.publicKey.toBase58());
+    await program.methods.nominateAuthority(pendingAdmin.publicKey)
+    .accountsPartial({
+      authority: admin.publicKey,
+      roundState: firstRoundPDA,
+    })
+    .rpc();
+    firstRoundState = await program.account.roundState.fetch(firstRoundPDA);
+    console.log("After nominating new admin, pending_admin: ", firstRoundState.pendingAdmin.toBase58());
     
   });
 
@@ -333,7 +343,7 @@ describe("yield-play-main", () => {
 
     // Request randomness
     await program.methods.requestResult()
-    .accounts({
+    .accountsPartial({
       authority: admin.publicKey,
       roundState: firstRoundPDA,
       randomNumberAcct: randomNumberPda,
@@ -355,7 +365,7 @@ describe("yield-play-main", () => {
 
     // Get vrf_seed
     await program.methods.fulfillResult()
-    .accounts({
+    .accountsPartial({
       roundState: firstRoundPDA,
       randomNumberAcct: randomNumberPda,
     })
@@ -366,7 +376,7 @@ describe("yield-play-main", () => {
   it.skip("Update Price!", async () => {
     await new Promise(resolve => setTimeout(resolve, 5000)); //wait 5 seconds
     const ix = await program.methods.updatePrice()
-    .accounts({
+    .accountsPartial({
       authority: admin.publicKey,
       roundState: firstRoundPDA,
       lotteryState: lotteryStatePDA,
@@ -376,7 +386,7 @@ describe("yield-play-main", () => {
     let roundState = await program.account.roundState.fetch(firstRoundPDA);
     console.log("New price per ticket: ", roundState.pricePerTicket.toNumber());
   });
-  it.skip("Enter Round!", async () => {
+  it("Enter Round!", async () => {
     
     let firstRoundState = await program.account.roundState.fetch(firstRoundPDA);
       console.log("Round State before user enter: ");
@@ -425,7 +435,7 @@ describe("yield-play-main", () => {
 
       // Enter Round
       users.push(user);
-      await program.methods.enterRound(new BN(2)).accounts({
+      await program.methods.enterRound(new BN(2)).accountsPartial({
         user: user.publicKey,
         lotteryState: lotteryStatePDA,
         roundState: firstRoundPDA,
@@ -473,7 +483,7 @@ describe("yield-play-main", () => {
     console.log("Round Vault ATA Balance: ", Number(vaultAtaAccount.amount));
   });
 
-  it("Deposit to lending (mock Jupiter on devnet)", async () => {
+  it.skip("Deposit to lending (mock Jupiter on devnet)", async () => {
     destinationAta = (await getOrCreateAssociatedTokenAccount(
       provider.connection,
       admin.payer,
@@ -560,7 +570,7 @@ describe("yield-play-main", () => {
     console.log("Destination ATA Balance after deposit:", Number(destinationAtaAccountAfter.amount));
   });
 
-  it("Withdraw from Jupiter lending on devnet with USDC", async () => {
+  it.skip("Withdraw from Jupiter lending on devnet with USDC", async () => {
     // Get Jupiter Lend withdraw context
     const vaultAtaAccountBefore = await getAccount(
       provider.connection,
@@ -633,7 +643,7 @@ describe("yield-play-main", () => {
       console.log("Destination balance after withdraw:", Number(destinationBalanceAfter.amount));
   });
 
-  it.skip("Update Balance!", async () => {
+  it("Update Balance!", async () => {
     await mintTo(
         provider.connection,
         admin.payer,
@@ -654,7 +664,7 @@ describe("yield-play-main", () => {
     console.log("Round Vault ATA Balance: ", Number(vaultAtaAccount.amount));
  
     const ix = await program.methods.updateBalance()
-    .accounts({
+    .accountsPartial({
       authority: admin.publicKey,
       roundState: firstRoundPDA,
       roundVaultAta: roundVaultAta,
@@ -670,7 +680,7 @@ describe("yield-play-main", () => {
     console.log("New total farmed amount: ", roundState.totalFarmedAmount.toNumber());
   });
   
-  it.skip("Choose winner!", async () => {
+  it("Choose winner!", async () => {
 
     let now = Math.floor(Date.now() / 1000);
     let firstRoundState = await program.account.roundState.fetch(firstRoundPDA);
@@ -681,7 +691,7 @@ describe("yield-play-main", () => {
     await new Promise(resolve => setTimeout(resolve, waitingTime * 1000)); //wait to let round end
 
     const ix = await program.methods.chooseWinner()
-    .accounts({
+    .accountsPartial({
       authority: admin.publicKey,
       roundState: firstRoundPDA,
       firstPrize: users[0].publicKey,
@@ -699,11 +709,15 @@ describe("yield-play-main", () => {
     console.log("second prize: ", firstRoundState.secondPrize.toBase58());
     console.log("third prize: ", firstRoundState.thirdPrize.toBase58());
     console.log("Round status: ", firstRoundState.status);
+
+    const users0RoundState = await program.account.userRoundState.fetch(usersState[0]);
+    console.log("User 0 Round State after choose winner: ");
+    console.log("     amount won: ", users0RoundState.amountToClaim.toNumber());
     
   });
   
 
-  it.skip("Claim prizes!", async () => {
+  it("Claim prizes!", async () => {
     const userAta = getAssociatedTokenAddressSync(paymentMint, users[0].publicKey);
     let userAtaAccount = await getAccount(
       provider.connection,
@@ -718,7 +732,7 @@ describe("yield-play-main", () => {
     console.log("     total_refunded: ", firstRoundStateBefore.totalRefunded.toNumber());
     console.log("     state: ", firstRoundStateBefore.status);
     const ix = await program.methods.claim()
-    .accounts({
+    .accountsPartial({
       user: users[0].publicKey,
       roundState: firstRoundPDA,
       userRoundState: usersState[0],

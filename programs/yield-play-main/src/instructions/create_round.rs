@@ -79,6 +79,7 @@ impl<'info> CreateRound<'info> {
         require!(arg.end_ts as u64 > arg.start_ts as u64, ErrorCode::GapTimeInvalid);
 
         round_state.admin = ctx.accounts.authority.key();
+        round_state.pending_admin = round_state.admin;
         //round_state.payment_mint = arg.payment_mint; // Default to SOL, can be updated later
         round_state.round_id = lottery_state.global_round_counter;
 

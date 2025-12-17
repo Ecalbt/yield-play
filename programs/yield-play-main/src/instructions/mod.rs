@@ -7,6 +7,8 @@ pub mod update_price;
 pub mod lending_instructions;
 pub mod claim;
 pub mod update_balance;
+pub mod nominate_authority;
+pub mod accept_authority;
 
 pub use initialize::*;
 pub use create_round::*;
@@ -17,3 +19,5 @@ pub use update_price::*;
 pub use lending_instructions::*;
 pub use claim::*;
 pub use update_balance::*;
+pub use nominate_authority::*;
+pub use accept_authority::*;
