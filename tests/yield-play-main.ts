@@ -269,7 +269,7 @@ describe("yield-play-main", () => {
       let arg = {
         roundId: new BN(1),
         startTs: new BN(Math.floor(Date.now() / 1000) + 1),
-        endTs: new BN(Math.floor(Date.now()/1000) + 30),
+        endTs: new BN(Math.floor(Date.now()/1000) + 45),
         gapTime: new BN(1),
         ticketBasePrice: new BN(100_000), // 1 token
         ticketPriceJump: new BN(100_000), // 1 token
@@ -715,22 +715,22 @@ describe("yield-play-main", () => {
     console.log("third prize: ", firstRoundState.thirdPrize.toBase58());
     console.log("Round status: ", firstRoundState.status);
 
-    const users0RoundState = await program.account.userRoundState.fetch(usersState[0]);
-    console.log("User 0 Round State after choose winner: ");
-    console.log("     amount won: ", users0RoundState.amountToClaim.toNumber());
+    const users1RoundState = await program.account.userRoundState.fetch(usersState[1]);
+    console.log("User 1 Round State after choose winner: ");
+    console.log("     amount won: ", users1RoundState.amountToClaim.toNumber());
     
   });
   
 
   it("Claim prizes!", async () => {
-    const userAta = getAssociatedTokenAddressSync(paymentMint, users[0].publicKey);
+    const userAta = getAssociatedTokenAddressSync(paymentMint, users[1].publicKey);
     let userAtaAccount = await getAccount(
       provider.connection,
       userAta,
       undefined, 
       TOKEN_PROGRAM_ID
     );
-    console.log("User 0 ATA Balance before claim: ", Number(userAtaAccount.amount));
+    console.log("User 1 ATA Balance before claim: ", Number(userAtaAccount.amount));
 
     const firstRoundStateBefore = await program.account.roundState.fetch(firstRoundPDA);
     console.log("First Round State before claim: ");
@@ -738,9 +738,9 @@ describe("yield-play-main", () => {
     console.log("     state: ", firstRoundStateBefore.status);
     const ix = await program.methods.claim()
     .accountsPartial({
-      user: users[0].publicKey,
+      user: users[1].publicKey,
       roundState: firstRoundPDA,
-      userRoundState: usersState[0],
+      userRoundState: usersState[1],
       vaultRoundSigner: vaultRoundSignerPDA,
       roundVaultAta: roundVaultAta,
       paymentMint: paymentMint,
@@ -749,7 +749,7 @@ describe("yield-play-main", () => {
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
-    .signers([users[0]])
+    .signers([users[1]])
     .rpc();
     console.log("Claim IX: ", ix);
     userAtaAccount = await getAccount(
@@ -758,7 +758,39 @@ describe("yield-play-main", () => {
       undefined, 
       TOKEN_PROGRAM_ID
     );
-    console.log("User 0 ATA Balance after claim: ", Number(userAtaAccount.amount));
+    console.log("User 1 ATA Balance after claim: ", Number(userAtaAccount.amount));
+  });
+
+  it("Claim Admin fees!", async () => {
+    const adminAta = getAssociatedTokenAddressSync(paymentMint, admin.publicKey);
+    let adminAtaAccount = await getAccount(
+      provider.connection,
+      adminAta,
+      undefined, 
+      TOKEN_PROGRAM_ID
+    );
+    console.log("Admin ATA Balance before claim: ", Number(adminAtaAccount.amount));
+    const ix = await program.methods.claimAdmin()
+    .accountsPartial({
+      admin: admin.publicKey,
+      roundState: firstRoundPDA,
+      vaultRoundSigner: vaultRoundSignerPDA,
+      roundVaultAta: roundVaultAta,
+      paymentMint: paymentMint,
+      adminAta: adminAta,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .rpc();
+    console.log("Claim Admin IX: ", ix);
+    adminAtaAccount = await getAccount(
+      provider.connection,
+      adminAta,
+      undefined, 
+      TOKEN_PROGRAM_ID
+    );
+    console.log("Admin ATA Balance after claim: ", Number(adminAtaAccount.amount));
   });
 
 });
