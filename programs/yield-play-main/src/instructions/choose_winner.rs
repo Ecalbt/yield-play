@@ -81,6 +81,7 @@ impl<'info> ChooseWinner<'info> {
         round_state.update_status(now_ts);
         require!(round_state.admin == ctx.accounts.authority.key(), ErrorCode::Unauthorized);
         require!(round_state.status == RoundStatus::ChoosingWinners.to_u8(), ErrorCode::RoundNotActive);
+        require!(round_state.total_farmed_amount > 0, ErrorCode::NoFarmedAmount);
         require!(first_prize_round_state.ticket_count > 0, ErrorCode::UserDoesNotParticipate);
         require!(second_prize_round_state.ticket_count > 0, ErrorCode::UserDoesNotParticipate);
         require!(third_prize_round_state.ticket_count > 0, ErrorCode::UserDoesNotParticipate);
@@ -108,18 +109,27 @@ impl<'info> ChooseWinner<'info> {
 
         if first_prize_round_state.key() == second_prize_round_state.key() {
             second_prize_round_state.amount_to_claim += second_prize_bonus + first_prize_bonus;
+            third_prize_round_state.amount_to_claim += third_prize_bonus;
         } 
 
         if first_prize_round_state.key() == third_prize_round_state.key() {
             third_prize_round_state.amount_to_claim += third_prize_bonus + first_prize_bonus;
+            second_prize_round_state.amount_to_claim += second_prize_bonus;
         } 
 
         if second_prize_round_state.key() == third_prize_round_state.key() {
             third_prize_round_state.amount_to_claim += third_prize_bonus + second_prize_bonus;
+            first_prize_round_state.amount_to_claim += first_prize_bonus;
         }
 
         if first_prize_round_state.key() == second_prize_round_state.key() && first_prize_round_state.key() == third_prize_round_state.key() {
             first_prize_round_state.amount_to_claim += first_prize_bonus + second_prize_bonus + third_prize_bonus;
+        }
+        
+        if first_prize_round_state.key() != second_prize_round_state.key() && first_prize_round_state.key() != third_prize_round_state.key() && second_prize_round_state.key() != third_prize_round_state.key() {
+            first_prize_round_state.amount_to_claim += first_prize_bonus;
+            second_prize_round_state.amount_to_claim += second_prize_bonus;
+            third_prize_round_state.amount_to_claim += third_prize_bonus;
         }
         
         round_state.status = RoundStatus::RewardsDistributed.to_u8();

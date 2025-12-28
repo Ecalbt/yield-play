@@ -32,4 +32,6 @@ pub enum ErrorCode {
     RandomnessNotFulfilled,
     #[msg("Invalid prize distribution")]
     InvalidPrizeDistribution,
+    #[msg("No farmed amount to distribute")]
+    NoFarmedAmount,
 }
