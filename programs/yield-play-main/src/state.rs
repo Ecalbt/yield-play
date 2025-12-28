@@ -24,6 +24,7 @@ pub struct RoundState {
     pub total_refunded: u64,
     pub total_farmed_amount: u64,    // tổng số tiền farm được trong round
     pub total_tickets: u64,
+    pub performance_fee: u64,
 
     pub start_ts: i64,
     pub end_ts: i64, 

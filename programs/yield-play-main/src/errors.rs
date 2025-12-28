@@ -34,4 +34,6 @@ pub enum ErrorCode {
     InvalidPrizeDistribution,
     #[msg("No farmed amount to distribute")]
     NoFarmedAmount,
+    #[msg("Nothing to claim")]
+    NothingToClaim,
 }

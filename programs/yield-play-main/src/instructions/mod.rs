@@ -9,6 +9,7 @@ pub mod claim;
 pub mod update_balance;
 pub mod nominate_authority;
 pub mod accept_authority;
+pub mod claim_admin;
 
 pub use initialize::*;
 pub use create_round::*;
@@ -21,3 +22,4 @@ pub use claim::*;
 pub use update_balance::*;
 pub use nominate_authority::*;
 pub use accept_authority::*;
+pub use claim_admin::*;

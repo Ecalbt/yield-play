@@ -56,6 +56,7 @@ impl<'info> UpdateBalance<'info> {
         let vault_balance = ctx.accounts.round_vault_ata.amount;
         let vault_farmed = vault_balance.saturating_sub(round_state.total_deposit);
         let net_farmed = (vault_farmed as f64) * (1.0 - PERFORMANCE_FEE_RATE);
+        round_state.performance_fee = vault_farmed.saturating_sub(net_farmed as u64);
         round_state.total_farmed_amount = net_farmed as u64;
         msg!("Vault balance: {}", vault_balance);
         msg!("Total deposit: {}", round_state.total_deposit);
