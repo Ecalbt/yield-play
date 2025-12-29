@@ -10,6 +10,7 @@ pub struct LotteryState {
 #[account]
 pub struct RoundState {
     pub admin: Pubkey,
+    pub pending_admin: Pubkey,
     pub round_id: u64,
 
     pub round_seed: [u8; 32],         // (=keccak(unix_timestamp || global_round_counter)
@@ -22,7 +23,8 @@ pub struct RoundState {
     pub total_deposit: u64,
     pub total_refunded: u64,
     pub total_farmed_amount: u64,    // tổng số tiền farm được trong round
-    pub total_tickets: f64,
+    pub total_tickets: u64,
+    pub performance_fee: u64,
 
     pub start_ts: i64,
     pub end_ts: i64, 
@@ -32,7 +34,7 @@ pub struct RoundState {
     pub second_prize: Pubkey,
     pub third_prize: Pubkey,
     
-    pub status: u8,              //RoundStatus
+    pub status: u8,
 }
 
 #[account]
@@ -40,13 +42,15 @@ pub struct UserRoundState {
     pub user: Pubkey,
     pub round_id: u64,
     pub deposit_amount: u64,
-    pub ticket_count: f64, 
+    pub ticket_count: u64, 
     pub is_claimed: bool,
+    pub amount_to_claim: u64,
 }
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
 pub enum RoundStatus {
     Started,
     Ended,
+    ChoosingWinners,
     RewardsDistributed,
 }
 impl RoundStatus {
@@ -54,7 +58,8 @@ impl RoundStatus {
         match value {
             0 => Some(RoundStatus::Started),
             1 => Some(RoundStatus::Ended),
-            2 => Some(RoundStatus::RewardsDistributed),
+            2 => Some(RoundStatus::ChoosingWinners),
+            3 => Some(RoundStatus::RewardsDistributed),
             _ => None,
         }
     }
@@ -63,14 +68,18 @@ impl RoundStatus {
         match self {
             RoundStatus::Started => 0,
             RoundStatus::Ended => 1,
-            RoundStatus::RewardsDistributed => 2,
+            RoundStatus::ChoosingWinners => 2,
+            RoundStatus::RewardsDistributed => 3,
         }
     }
 }
 impl<'info>  RoundState {
     pub fn update_status(&mut self, now_ts: u64) {
+        if(self.status == RoundStatus::RewardsDistributed.to_u8()) {
+            return;
+        }
         if now_ts >= (self.end_ts + self.gap_time) as u64 {
-            self.status = RoundStatus::RewardsDistributed.to_u8();
+            self.status = RoundStatus::ChoosingWinners.to_u8();
             return;
         }
         else if now_ts >= self.end_ts as u64 {

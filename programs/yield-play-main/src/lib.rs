@@ -31,28 +31,43 @@ pub mod yield_play_main {
         FulfillResult::process(ctx)
     }
 
-    pub fn enter_round(ctx: Context<EnterRound>, amount: f64) -> Result<()> {
+    pub fn enter_round(ctx: Context<EnterRound>, amount: u64) -> Result<()> {
         EnterRound::process(ctx, amount)
     }
     
-    pub fn choose_winner(ctx: Context<ChooseWinner>) -> Result<()> {
-        ChooseWinner::process(ctx)
+    pub fn choose_winner(ctx: Context<ChooseWinner>, arg: ChooseWinnerArgs) -> Result<()> {
+        ChooseWinner::process(ctx, arg)
     }
 
     pub fn update_price(ctx: Context<UpdatePrice>) -> Result<()> {
         UpdatePrice::process(ctx)
     }
 
-    // pub fn deposit_to_lending(ctx: Context<DepositToLending>, amount: u64) -> Result<()> {
-    //     DepositToLending::process(ctx, amount)
-    // }
+    pub fn deposit_to_lending(ctx: Context<DepositToLending>) -> Result<()> {
+        DepositToLending::process(ctx)
+    }
 
-    // pub fn withdraw_from_lending(ctx: Context<WithdrawFromLending>, collateral_amount: u64) -> Result<()> {
-    //     WithdrawFromLending::process(ctx, collateral_amount)
-    // }
+    pub fn withdraw_from_lending(ctx: Context<WithdrawFromLending>) -> Result<()> {
+        WithdrawFromLending::process(ctx)
+    }
+
+    pub fn update_balance(ctx: Context<UpdateBalance>) -> Result<()> {
+        UpdateBalance::process(ctx)
+    }
 
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         Claim::process(ctx)
+    }
+
+    pub fn claim_admin(ctx: Context<ClaimAdmin>) -> Result<()> {
+        ClaimAdmin::process(ctx)
+    }
+
+    pub fn nominate_authority(ctx: Context<NominateAuthority>, new_admin: Pubkey) -> Result<()> {
+        NominateAuthority::process(ctx, new_admin)
+    }
+    pub fn accept_authority(ctx: Context<AcceptAuthority>) -> Result<()> {
+        AcceptAuthority::process(ctx)
     }
 }   
 

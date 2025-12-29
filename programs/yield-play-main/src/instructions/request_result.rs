@@ -1,9 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock;
+use anchor_lang::AccountDeserialize;
 
 use orao_solana_vrf::program::OraoVrf;
 use orao_solana_vrf::cpi::accounts::RequestV2;
-use orao_solana_vrf::{state::NetworkState, CONFIG_ACCOUNT_SEED, RANDOMNESS_ACCOUNT_SEED};
+use orao_solana_vrf::{CONFIG_ACCOUNT_SEED, RANDOMNESS_ACCOUNT_SEED};
+use orao_solana_vrf::state::{NetworkState, RandomnessAccountData};
 
 use crate::state::*;
 use crate::errors::ErrorCode;
@@ -91,7 +93,7 @@ impl<'info> RequestResult<'info> {
         
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         orao_solana_vrf::cpi::request_v2(cpi_ctx, round_state.round_seed)?;
-
+        
         Ok(())
     }
 }
@@ -100,21 +102,16 @@ impl<'info> FulfillResult<'info> {
     pub fn process(ctx: Context<FulfillResult>) -> Result<()> {
         let round_state = &mut ctx.accounts.round_state;
 
-        // Extract and store the VRF seed from the randomness account
-        // This should only be called after Orao VRF has fulfilled the request
-        let randomness_account = ctx.accounts.random_number_acct.try_borrow_data()?;
-        
-        // The Orao VRF randomness account structure:
-        // The fulfilled randomness is typically stored after the request info
-        // Try offset 8 (discriminator) + request seed (32 bytes) = 40, then fulfilled randomness (64 bytes)
-        // But we need to match what getFulfilledRandomness() returns
-        // It appears the seed is at a different offset, let's try offset 72 (8 + 32 + 32)
-        if randomness_account.len() >= 105 {
-            // Extract bytes 32-64 from the fulfilled randomness (second half of the 64-byte value)
-            let mut vrf_seed = [0u8; 32];
-            vrf_seed.copy_from_slice(&randomness_account[73..105]);
-            round_state.vrf_seed = vrf_seed;
-        }
+        let randomness = RandomnessAccountData::try_deserialize(
+            &mut &ctx.accounts.random_number_acct.data.borrow()[..],
+        )
+        .map_err(|_| ErrorCode::RandomnessAccountDeserializeFailed)?;
+
+        let fulfilled = randomness
+            .fulfilled_randomness()
+            .ok_or(ErrorCode::RandomnessNotFulfilled)?;
+
+        round_state.vrf_seed.copy_from_slice(&fulfilled[..32]);
 
         Ok(())
     }

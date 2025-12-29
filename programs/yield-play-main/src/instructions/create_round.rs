@@ -62,14 +62,6 @@ pub struct CreateRound<'info> {
     )]
     pub round_vault_ata: InterfaceAccount<'info, TokenAccount>,
 
-    // Destination mint and ATA
-    pub destination_mint: InterfaceAccount<'info, Mint>,
-    #[account(
-        mut,
-        associated_token::mint = destination_mint,
-        associated_token::authority = vault_round_signer,
-    )]
-    pub destination_ata: InterfaceAccount<'info, TokenAccount>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Interface<'info, TokenInterface>,
@@ -83,10 +75,11 @@ impl<'info> CreateRound<'info> {
         let now_ts = Clock::get()?.unix_timestamp as u64;
         msg!("Creating round at timestamp: {}", now_ts);
         msg!("With args: start_ts: {}, end_ts: {}, gap_time: {}", arg.start_ts, arg.end_ts, arg.gap_time);
-        require!((arg.start_ts * 1000) as u64 >= now_ts, ErrorCode::InvalidStartTime);
+        require!((arg.start_ts) as u64 >= now_ts, ErrorCode::InvalidStartTime);
         require!(arg.end_ts as u64 > arg.start_ts as u64, ErrorCode::GapTimeInvalid);
 
         round_state.admin = ctx.accounts.authority.key();
+        round_state.pending_admin = round_state.admin;
         //round_state.payment_mint = arg.payment_mint; // Default to SOL, can be updated later
         round_state.round_id = lottery_state.global_round_counter;
 
@@ -104,7 +97,8 @@ impl<'info> CreateRound<'info> {
         round_state.total_deposit = 0;
         round_state.total_refunded = 0;
         round_state.total_farmed_amount = 0;
-        round_state.total_tickets = 0 as f64;
+        round_state.total_tickets = 0;
+        round_state.performance_fee = 0;
 
         round_state.start_ts = arg.start_ts; 
         round_state.end_ts = arg.end_ts;   
@@ -118,6 +112,7 @@ impl<'info> CreateRound<'info> {
         round_state.first_prize = Pubkey::default();
         round_state.second_prize = Pubkey::default();   
         round_state.third_prize = Pubkey::default();
+
 
         lottery_state.global_round_counter += 1;
         // Increment global round counter

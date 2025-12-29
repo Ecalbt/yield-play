@@ -18,4 +18,22 @@ pub enum ErrorCode {
     RoundNotCompleted,
     #[msg("Already claimed")]
     AlreadyClaimed,
+    #[msg("Invalid amount")]
+    InvalidAmount,
+    #[msg("CPI to lending program failed")]
+    CpiLendingProgramFailed,
+    #[msg("Overflow occurred")]
+    Overflow,
+    #[msg("User does not participate in this round")]
+    UserDoesNotParticipate,
+    #[msg("Randomness account deserialization failed")]
+    RandomnessAccountDeserializeFailed,
+    #[msg("Randomness not fulfilled")]
+    RandomnessNotFulfilled,
+    #[msg("Invalid prize distribution")]
+    InvalidPrizeDistribution,
+    #[msg("No farmed amount to distribute")]
+    NoFarmedAmount,
+    #[msg("Nothing to claim")]
+    NothingToClaim,
 }

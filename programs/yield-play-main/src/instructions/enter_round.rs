@@ -12,6 +12,14 @@ use crate::{
     state::*,
     errors::ErrorCode,
 };
+
+#[event]
+pub struct TicketPurchase {
+    pub round_id: u64,
+    pub user: Pubkey,
+    pub ticket_start_index: u64,
+    pub ticket_count: u64,
+}
 #[derive(Accounts)]
 pub struct EnterRound<'info> {
     #[account(mut)]
@@ -69,7 +77,7 @@ pub struct EnterRound<'info> {
     pub system_program: Program<'info, System>,
 }
 impl<'info> EnterRound<'info> {
-    pub fn process(ctx: Context<EnterRound>, amount: f64) -> Result<()> {
+    pub fn process(ctx: Context<EnterRound>, amount: u64) -> Result<()> {
         let round_state = &mut ctx.accounts.round_state;
         let user_round_state = &mut ctx.accounts.user_round_state;
         let lottery_state = &ctx.accounts.lottery_state;
@@ -82,8 +90,9 @@ impl<'info> EnterRound<'info> {
             user_round_state.user = ctx.accounts.user.key();
             user_round_state.round_id = round_state.round_id;
             user_round_state.deposit_amount = 0;
-            user_round_state.ticket_count = 0 as f64;
+            user_round_state.ticket_count = 0;
             user_round_state.is_claimed = false;
+            user_round_state.amount_to_claim = 0;
         }
 
         
@@ -95,16 +104,26 @@ impl<'info> EnterRound<'info> {
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        let token_amount = (round_state.price_per_ticket as f64 * amount) as u64;
+        let token_amount = round_state.price_per_ticket
+            .checked_mul(amount)
+            .ok_or(ErrorCode::Overflow)? as u64;
         transfer_checked(cpi_ctx, token_amount, ctx.accounts.payment_mint.decimals)?;
 
         //update round state
+        let ticket_start_index = round_state.total_tickets;
         round_state.total_deposit += token_amount;
         round_state.total_tickets += amount;
 
         //update user round state
         user_round_state.deposit_amount += token_amount;
         user_round_state.ticket_count += amount;
+
+        emit!(TicketPurchase {
+            round_id: round_state.round_id,
+            user: ctx.accounts.user.key(),
+            ticket_start_index,
+            ticket_count: amount,
+        });
 
         Ok(())
     }
