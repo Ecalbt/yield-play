@@ -36,4 +36,6 @@ pub enum ErrorCode {
     NoFarmedAmount,
     #[msg("Nothing to claim")]
     NothingToClaim,
+    #[msg("Invalid payment mint")]
+    InvalidPaymentMint,
 }

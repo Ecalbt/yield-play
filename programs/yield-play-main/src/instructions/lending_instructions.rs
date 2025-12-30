@@ -113,6 +113,7 @@ impl<'info> DepositToLending<'info> {
 		let lending_program = &ctx.accounts.lending_program;
 
 		require!(round_state.admin == ctx.accounts.authority.key(), ErrorCode::Unauthorized);
+		require!(round_state.payment_mint == ctx.accounts.payment_mint.key(), ErrorCode::InvalidPaymentMint);
 		let amount = ctx.accounts.round_vault_ata.amount;
 		require!(amount > 0, ErrorCode::InvalidAmount);
 
@@ -288,6 +289,7 @@ impl<'info> WithdrawFromLending<'info> {
 		let lending_program = &ctx.accounts.lending_program;
 
 		require!(round_state.admin == ctx.accounts.authority.key(), ErrorCode::Unauthorized);
+		require!(round_state.payment_mint == ctx.accounts.payment_mint.key(), ErrorCode::InvalidPaymentMint);
 
 		let collateral_amount = ctx.accounts.collateral_token_account.amount;
 		require!(collateral_amount > 0, ErrorCode::InvalidAmount);

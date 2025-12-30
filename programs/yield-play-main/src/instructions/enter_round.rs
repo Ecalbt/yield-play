@@ -85,6 +85,7 @@ impl<'info> EnterRound<'info> {
 
         round_state.update_status(now_ts);
         require!(round_state.status == RoundStatus::Started.to_u8(), ErrorCode::RoundNotActive);
+        require!(ctx.accounts.payment_mint.key() == round_state.payment_mint, ErrorCode::InvalidPaymentMint);
 
         if user_round_state.deposit_amount == 0 {
             user_round_state.user = ctx.accounts.user.key();
@@ -117,6 +118,7 @@ impl<'info> EnterRound<'info> {
         //update user round state
         user_round_state.deposit_amount += token_amount;
         user_round_state.ticket_count += amount;
+
 
         emit!(TicketPurchase {
             round_id: round_state.round_id,

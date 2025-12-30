@@ -68,6 +68,7 @@ impl<'info> Claim<'info> {
 
         require!(round_state.status == RoundStatus::RewardsDistributed.to_u8(), ErrorCode::RoundNotCompleted);
         require!(!user_round_state.is_claimed, ErrorCode::AlreadyClaimed);
+        require!(round_state.payment_mint == ctx.accounts.payment_mint.key(), ErrorCode::InvalidPaymentMint);
         
         
         let mut amount_to_claim = user_round_state.amount_to_claim + user_round_state.deposit_amount;

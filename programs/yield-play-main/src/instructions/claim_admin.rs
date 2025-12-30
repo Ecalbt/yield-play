@@ -60,6 +60,7 @@ impl<'info> ClaimAdmin<'info> {
 
         require!(round_state.status == RoundStatus::RewardsDistributed.to_u8(), ErrorCode::RoundNotCompleted);
         require!(round_state.admin == ctx.accounts.admin.key(), ErrorCode::Unauthorized);
+        require!(round_state.payment_mint == ctx.accounts.payment_mint.key(), ErrorCode::InvalidPaymentMint);
         let mut amount_to_claim = round_state.performance_fee;
         require!(amount_to_claim > 0, ErrorCode::NothingToClaim);
         

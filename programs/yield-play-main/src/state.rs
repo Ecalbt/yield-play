@@ -12,6 +12,7 @@ pub struct RoundState {
     pub admin: Pubkey,
     pub pending_admin: Pubkey,
     pub round_id: u64,
+    pub payment_mint: Pubkey,
 
     pub round_seed: [u8; 32],         // (=keccak(unix_timestamp || global_round_counter)
     pub vrf_seed: [u8; 32],        //(seed lấy từ OraoVRF) 

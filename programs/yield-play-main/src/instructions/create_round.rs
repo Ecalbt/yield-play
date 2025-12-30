@@ -82,6 +82,7 @@ impl<'info> CreateRound<'info> {
         round_state.pending_admin = round_state.admin;
         //round_state.payment_mint = arg.payment_mint; // Default to SOL, can be updated later
         round_state.round_id = lottery_state.global_round_counter;
+        round_state.payment_mint = ctx.accounts.payment_mint.key();
 
         // Compute round_seed = keccak(unix_timestamp || global_round_counter)
         let mut seed_data = Vec::new();
